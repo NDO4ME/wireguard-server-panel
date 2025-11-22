@@ -38,7 +38,7 @@ docker run -d \
   -v wireguard-data:/data \
   -e ADMIN_PASSWORD=your_secure_password \
   --restart unless-stopped \
-  ghcr.io/layerweb/wireguard-server-panel:latest
+  layerweb/wireguard-panel:latest
 
 # View logs
 docker logs -f wireguardpanel
@@ -63,7 +63,7 @@ docker run -d \
   -v $(pwd)/data:/data \
   -e ADMIN_PASSWORD=your_secure_password \
   --restart unless-stopped \
-  ghcr.io/layerweb/wireguard-server-panel:latest
+  layerweb/wireguard-panel:latest
 ```
 
 ### Option 3: Docker Compose
@@ -215,7 +215,7 @@ docker run -d \
   -e PANEL_PORT=1881 \
   -e ADMIN_PASSWORD=your_password \
   --restart unless-stopped \
-  ghcr.io/layerweb/wireguard-server-panel:latest
+  layerweb/wireguard-panel:latest
 ```
 
 ### Behind Reverse Proxy (nginx)

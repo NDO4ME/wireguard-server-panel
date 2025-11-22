@@ -2,6 +2,26 @@
 
 Modern, lightweight WireGuard VPN management panel. Single Docker container with everything included.
 
+[![Docker Hub](https://img.shields.io/docker/pulls/layerweb/wireguard-panel.svg)](https://hub.docker.com/r/layerweb/wireguard-panel)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+## Screenshots
+
+<p align="center">
+  <img src="screenshots/01-login.png" width="45%" alt="Login Screen" />
+  <img src="screenshots/02-dashboard.png" width="45%" alt="Dashboard" />
+</p>
+
+<p align="center">
+  <img src="screenshots/04-qr-code.png" width="45%" alt="QR Code" />
+  <img src="screenshots/03-connection-logs.png" width="45%" alt="Connection Logs" />
+</p>
+
+<p align="center">
+  <img src="screenshots/05-settings.png" width="45%" alt="Settings" />
+  <img src="screenshots/06-api-tailscale.png" width="45%" alt="API & Tailscale" />
+</p>
+
 ## Features
 
 - **Easy Setup**: Single command deployment

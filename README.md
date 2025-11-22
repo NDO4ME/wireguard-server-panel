@@ -7,17 +7,23 @@ Modern, lightweight WireGuard VPN management panel. Single Docker container with
 
 ## Screenshots
 
-| Login | Dashboard |
-|:---:|:---:|
-| ![Login](screenshots/01-login.png) | ![Dashboard](screenshots/02-dashboard.png) |
+### Login
+![Login](screenshots/01-login.png)
 
-| QR Code | Connection Logs |
-|:---:|:---:|
-| ![QR Code](screenshots/04-qr-code.png) | ![Connection Logs](screenshots/03-connection-logs.png) |
+### Dashboard
+![Dashboard](screenshots/02-dashboard.png)
 
-| Settings | API & Tailscale |
-|:---:|:---:|
-| ![Settings](screenshots/05-settings.png) | ![API & Tailscale](screenshots/06-api-tailscale.png) |
+### QR Code
+![QR Code](screenshots/04-qr-code.png)
+
+### Connection Logs
+![Connection Logs](screenshots/03-connection-logs.png)
+
+### Settings
+![Settings](screenshots/05-settings.png)
+
+### API & Tailscale
+![API & Tailscale](screenshots/06-api-tailscale.png)
 
 ## Features
 

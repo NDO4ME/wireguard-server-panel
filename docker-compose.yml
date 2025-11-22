@@ -2,8 +2,8 @@ version: '3.8'
 
 services:
   wireguardpanel:
-    build: .
-    image: wireguardpanel:latest
+    image: layerweb/wireguard-panel:latest
+    # build: .  # Uncomment to build locally
     container_name: wireguardpanel
     hostname: wireguardpanel
     restart: unless-stopped

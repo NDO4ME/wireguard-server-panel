@@ -60,6 +60,9 @@ docs/
 CHANGELOG.md
 CONTRIBUTING.md
 
+# Screenshots (only for README display)
+screenshots/
+
 # Docker files (not needed in build context)
 docker-compose*.yml
 .dockerignore

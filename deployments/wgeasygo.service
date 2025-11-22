@@ -1,0 +1,35 @@
+[Unit]
+Description=WGEasy Go Secure Edition API Server
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wgeasygo
+Group=wgeasygo
+WorkingDirectory=/opt/wgeasygo
+
+# Environment file for secrets
+EnvironmentFile=/opt/wgeasygo/.env
+
+# Binary path
+ExecStart=/opt/wgeasygo/wgeasygo
+
+# Restart policy
+Restart=on-failure
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/wgeasygo/data
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wgeasygo
+
+[Install]
+WantedBy=multi-user.target

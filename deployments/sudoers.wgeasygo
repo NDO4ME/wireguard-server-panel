@@ -1,0 +1,11 @@
+# /etc/sudoers.d/wgeasygo
+# Highly restricted sudo permissions for WGEasy Go
+# This file should be installed to /etc/sudoers.d/wgeasygo with mode 0440
+
+# Allow wgeasygo user to run only specific WireGuard commands without password
+# IMPORTANT: These commands do NOT allow shell injection due to strict argument handling
+
+wgeasygo ALL=(root) NOPASSWD: /usr/bin/wg show wg0
+wgeasygo ALL=(root) NOPASSWD: /usr/bin/wg set wg0 peer * allowed-ips *
+wgeasygo ALL=(root) NOPASSWD: /usr/bin/wg set wg0 peer * remove
+wgeasygo ALL=(root) NOPASSWD: /usr/bin/wg-quick save wg0

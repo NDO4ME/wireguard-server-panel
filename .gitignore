@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build output
+bin/
+dist/
+
+# Data and Database
+data/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# IDE and Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment files
+.env
+.env.*
+.env.local
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage/
+*.test
+.coverage
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS generated
+.DS_Store
+Thumbs.db
+
+# Go binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# NPM
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

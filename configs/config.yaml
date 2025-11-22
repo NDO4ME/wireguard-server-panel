@@ -1,0 +1,35 @@
+# WireGuard Panel Configuration
+# Can be overridden via environment variables in Docker
+
+server:
+  host: "0.0.0.0"
+  port: 1881
+  mode: "release"
+
+database:
+  path: "/app/data/wireguard.db"
+
+jwt:
+  access_secret: "change-me-in-production"
+  refresh_secret: "change-me-in-production"
+  access_expiry_minutes: 15
+  refresh_expiry_days: 7
+
+wireguard:
+  interface: "wg0"
+  server_public_key: ""
+  server_endpoint: ""
+  dns: "1.1.1.1"
+  allowed_ips: "0.0.0.0/0, ::/0"
+  subnet: "10.8.0.0/24"
+  config_path: "/etc/wireguard/wg0.conf"
+  port: 51820
+
+security:
+  bcrypt_cost: 12
+  rate_limit_requests: 5
+  rate_limit_window_seconds: 60
+
+admin:
+  username: "admin"
+  password: "admin"

@@ -1,0 +1,82 @@
+# ===========================================
+# Docker Build Context Exclusions
+# ===========================================
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# GitHub
+.github/
+
+# IDE and Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Dependencies (will be installed during build)
+node_modules/
+vendor/
+
+# Build artifacts
+bin/
+dist/
+
+# Data and Database
+data/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Environment files
+.env
+.env.*
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Test files
+*_test.go
+**/*_test.go
+coverage/
+*.test
+.coverage
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Documentation (keep README for reference)
+docs/
+CHANGELOG.md
+CONTRIBUTING.md
+
+# Docker files (not needed in build context)
+docker-compose*.yml
+.dockerignore
+Dockerfile.dev
+
+# OS generated
+Thumbs.db
+ehthumbs.db
+
+# NPM
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib

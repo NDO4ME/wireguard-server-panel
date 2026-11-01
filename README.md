@@ -208,7 +208,41 @@ docker compose up -d
 docker compose logs -f --tail=50
 ```
 
-For a plain `docker run` setup, stop and remove the container, then run the Quick start command again with the **same `-v` volume** (`ghcr.io/ndo4me/wireguard-server-panel:latest`, and `-p 127.0.0.1:1881:1881/tcp`).
+#### Installed with `docker run`
+
+Keep the **same container name and the same `-v` volume** as the old command (`wireguard-data` in the old README, or `$(pwd)/data` for the local-directory variant; check with `docker inspect wireguardpanel --format '{{ range .Mounts }}{{ .Name }}{{ .Source }} {{ end }}'`).
+
+```bash
+# 1. Backup (named volume; for a local directory just tar that folder)
+docker stop wireguardpanel
+docker run --rm -v wireguard-data:/data -v "$PWD":/backup ubuntu:24.04 \
+  tar czf /backup/wireguard-backup-$(date +%F).tar.gz -C /data .
+
+# 2. Pull the new image and remove the old container (data stays in the volume)
+docker pull ghcr.io/ndo4me/wireguard-server-panel:latest
+docker rm wireguardpanel
+
+# 3. Start it again: same volume, new image, panel port on localhost only
+docker run -d \
+  --name wireguardpanel \
+  --cap-add NET_ADMIN \
+  --cap-add SYS_MODULE \
+  --sysctl net.ipv4.ip_forward=1 \
+  --sysctl net.ipv4.conf.all.src_valid_mark=1 \
+  --device /dev/net/tun:/dev/net/tun \
+  --stop-timeout 40 \
+  -p 127.0.0.1:1881:1881/tcp \
+  -p 1881:51820/udp \
+  -v wireguard-data:/data \
+  -e ADMIN_PASSWORD='your-existing-password' \
+  --restart unless-stopped \
+  ghcr.io/ndo4me/wireguard-server-panel:latest
+
+# 4. Check
+docker logs -f --tail=50 wireguardpanel
+```
+
+If you used other `-p`, `-e WG_HOST=...` or `-e WG_NETWORK=...` options before, repeat them. The existing admin password in the database wins; `ADMIN_PASSWORD` only matters for a fresh volume.
 
 What changes for you:
 

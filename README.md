@@ -187,6 +187,37 @@ docker rm wireguardpanel
 # run the same `docker run ...` command as in Quick start again (same -v volume)
 ```
 
+### Migrating from the old `layerweb/wireguard-panel` image
+
+Servers installed from the previous image keep their data and move over in place. The old image name receives no more updates, so switch to the new one:
+
+```bash
+cd /path/to/old/compose-folder            # where docker-compose.yml and ./data live
+
+# 1. Backup (stop first so the SQLite file is consistent)
+docker compose down
+tar czf ../wireguard-backup-$(date +%F).tar.gz ./data
+
+# 2. Point the compose file at the new image and the localhost-only port
+sed -i 's#layerweb/wireguard-panel:latest#ghcr.io/ndo4me/wireguard-server-panel:latest#' docker-compose.yml
+sed -i 's#- "1881:1881/tcp"#- "127.0.0.1:1881:1881/tcp"#' docker-compose.yml
+
+# 3. Pull and start
+docker compose pull
+docker compose up -d
+docker compose logs -f --tail=50
+```
+
+For a plain `docker run` setup, stop and remove the container, then run the Quick start command again with the **same `-v` volume** (`ghcr.io/ndo4me/wireguard-server-panel:latest`, and `-p 127.0.0.1:1881:1881/tcp`).
+
+What changes for you:
+
+- Clients, keys, settings and the admin password are kept; the admin user `layerweb` becomes `ndo4me` automatically.
+- The API token is regenerated once (it is no longer derived from the password). Read the new one on **API access** and update your scripts.
+- Browser sessions are signed out once. Sign in again.
+- The panel is now only on `127.0.0.1:1881`. Put Caddy in front of it ([Reverse proxy](#reverse-proxy-caddy)) or tunnel with `ssh -L 1881:127.0.0.1:1881 user@server`.
+- Tailscale stays connected (its state is in `./data/tailscale`) and can then be updated from the panel.
+
 ### Check the result
 
 ```bash

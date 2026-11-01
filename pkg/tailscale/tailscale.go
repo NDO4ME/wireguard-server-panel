@@ -1,10 +1,12 @@
 package tailscale
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // Status represents Tailscale connection status
@@ -41,9 +43,9 @@ type tailscaleStatusJSON struct {
 }
 
 type tailscaleSelfJSON struct {
-	HostName   string   `json:"HostName"`
+	HostName     string   `json:"HostName"`
 	TailscaleIPs []string `json:"TailscaleIPs"`
-	Online     bool     `json:"Online"`
+	Online       bool     `json:"Online"`
 }
 
 type tailscalePeerJSON struct {
@@ -54,8 +56,12 @@ type tailscalePeerJSON struct {
 	Online        bool     `json:"Online"`
 }
 
-// Manager handles Tailscale operations
-type Manager struct{}
+// Manager handles Tailscale operations (CLI wrapper, daemon supervision and
+// version updates). A single instance must be shared across the application.
+type Manager struct {
+	daemon  daemonState
+	updater updaterState
+}
 
 // NewManager creates a new Tailscale manager
 func NewManager() *Manager {
@@ -218,8 +224,9 @@ func (m *Manager) Up() (*Status, error) {
 	// If status shows NeedsLogin but we don't have auth URL, get it from tailscale
 	if status.BackendState == "NeedsLogin" && authURL == "" {
 		// Last resort: run tailscale up again and capture stderr
-		upCmd := exec.Command("tailscale", "up", "--accept-routes")
-		upOutput, _ := upCmd.CombinedOutput()
+		ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+		defer cancel()
+		upOutput, _ := exec.CommandContext(ctx, "tailscale", "up", "--accept-routes").CombinedOutput()
 		authURL = extractAuthURL(string(upOutput))
 	}
 
@@ -300,7 +307,9 @@ func (m *Manager) GetRoutingCommands(wgNetwork string) ([]string, error) {
 	return commands, nil
 }
 
-// SetupRouting configures iptables for WireGuard to Tailscale routing
+// SetupRouting configures iptables for WireGuard to Tailscale routing.
+// It is idempotent: a rule that already exists is never added twice, so it is
+// safe to call again after a daemon restart or a container restart.
 func (m *Manager) SetupRouting(wgNetwork string) error {
 	commands, err := m.GetRoutingCommands(wgNetwork)
 	if err != nil {
@@ -309,17 +318,28 @@ func (m *Manager) SetupRouting(wgNetwork string) error {
 
 	for _, cmdStr := range commands {
 		parts := strings.Fields(cmdStr)
-		if len(parts) < 2 {
+		if len(parts) < 4 {
 			continue
 		}
 
-		cmd := exec.Command(parts[0], parts[1:]...)
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			// Ignore "already exists" errors
-			if !strings.Contains(string(output), "already exists") {
-				return fmt.Errorf("failed to execute %s: %s", cmdStr, string(output))
+		// Build the matching "check" command (-C) from the add command (-I/-A).
+		check := make([]string, 0, len(parts))
+		replaced := false
+		for _, p := range parts[1:] {
+			if !replaced && (p == "-I" || p == "-A") {
+				check = append(check, "-C")
+				replaced = true
+				continue
 			}
+			check = append(check, p)
+		}
+		if replaced && exec.Command(parts[0], check...).Run() == nil {
+			continue // rule already present
+		}
+
+		output, err := exec.Command(parts[0], parts[1:]...).CombinedOutput()
+		if err != nil && !strings.Contains(string(output), "already exists") {
+			return fmt.Errorf("failed to execute %s: %s", cmdStr, string(output))
 		}
 	}
 

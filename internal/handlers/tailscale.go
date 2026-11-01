@@ -1,13 +1,16 @@
 package handlers
 
 import (
+	"context"
+	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
-	"wgeasygo/internal/config"
-	"wgeasygo/internal/db"
-	"wgeasygo/internal/models"
-	"wgeasygo/pkg/tailscale"
+	"github.com/ndo4me/wireguard-server-panel/internal/config"
+	"github.com/ndo4me/wireguard-server-panel/internal/db"
+	"github.com/ndo4me/wireguard-server-panel/internal/models"
+	"github.com/ndo4me/wireguard-server-panel/pkg/tailscale"
 )
 
 type TailscaleHandler struct {
@@ -15,11 +18,66 @@ type TailscaleHandler struct {
 	manager *tailscale.Manager
 }
 
-func NewTailscaleHandler(cfg *config.Config) *TailscaleHandler {
+func NewTailscaleHandler(cfg *config.Config, manager *tailscale.Manager) *TailscaleHandler {
 	return &TailscaleHandler{
 		config:  cfg,
-		manager: tailscale.NewManager(),
+		manager: manager,
 	}
+}
+
+// GetUpdateStatus returns Tailscale version / update state (no network access).
+func (h *TailscaleHandler) GetUpdateStatus(c *gin.Context) {
+	c.JSON(http.StatusOK, h.manager.UpdateStatus())
+}
+
+// CheckUpdate starts an asynchronous lookup of the latest stable version.
+func (h *TailscaleHandler) CheckUpdate(c *gin.Context) {
+	if h.manager.UpdateStatus().Checking || h.manager.UpdateStatus().Updating {
+		c.JSON(http.StatusConflict, models.ErrorResponse{Error: "A check or update is already running"})
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+		defer cancel()
+		if err := h.manager.CheckForUpdate(ctx); err != nil {
+			log.Printf("tailscale: update check: %v", err)
+		}
+	}()
+	c.JSON(http.StatusAccepted, gin.H{"success": true, "message": "Checking for updates"})
+}
+
+// ApplyUpdate starts an asynchronous update to the latest stable version.
+func (h *TailscaleHandler) ApplyUpdate(c *gin.Context) {
+	st := h.manager.UpdateStatus()
+	if !st.Supported {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "Updates are not supported here: " + st.Unsupported})
+		return
+	}
+	if st.Checking || st.Updating {
+		c.JSON(http.StatusConflict, models.ErrorResponse{Error: "A check or update is already running"})
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+		defer cancel()
+		if _, err := h.manager.ApplyUpdate(ctx, false); err != nil {
+			log.Printf("tailscale: manual update: %v", err)
+		}
+	}()
+	c.JSON(http.StatusAccepted, gin.H{"success": true, "message": "Update started"})
+}
+
+// SetAutoUpdate toggles automatic Tailscale updates.
+func (h *TailscaleHandler) SetAutoUpdate(c *gin.Context) {
+	var req struct {
+		Enabled *bool `json:"enabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Enabled == nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "Invalid request"})
+		return
+	}
+	h.manager.SetAutoUpdate(*req.Enabled)
+	c.JSON(http.StatusOK, gin.H{"success": true, "auto_update": *req.Enabled})
 }
 
 // GetStatus returns current Tailscale status
@@ -47,6 +105,7 @@ func (h *TailscaleHandler) GetStatus(c *gin.Context) {
 		"peers":           status.Peers,
 		"routes":          status.Routes,
 		"routing_enabled": routingEnabled,
+		"version":         h.manager.UpdateStatus().Current,
 	})
 }
 

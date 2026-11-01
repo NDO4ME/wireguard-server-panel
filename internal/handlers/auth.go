@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"wgeasygo/internal/auth"
-	"wgeasygo/internal/config"
-	"wgeasygo/internal/db"
-	"wgeasygo/internal/models"
+	"github.com/ndo4me/wireguard-server-panel/internal/auth"
+	"github.com/ndo4me/wireguard-server-panel/internal/config"
+	"github.com/ndo4me/wireguard-server-panel/internal/db"
+	"github.com/ndo4me/wireguard-server-panel/internal/models"
 )
 
 type AuthHandler struct {
@@ -95,9 +95,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		refreshToken,
 		maxAge,
 		"/api/v1/auth",
-		"",    // domain - empty for current domain
-		true,  // secure - HTTPS only
-		true,  // httpOnly - not accessible via JavaScript
+		"",   // domain - empty for current domain
+		true, // secure - HTTPS only
+		true, // httpOnly - not accessible via JavaScript
 	)
 
 	c.JSON(http.StatusOK, models.LoginResponse{

@@ -70,6 +70,10 @@ func Load(configPath string) (*Config, error) {
 	viper.BindEnv("jwt.refresh_secret", "JWT_REFRESH_SECRET")
 	viper.BindEnv("admin.username", "ADMIN_USERNAME")
 	viper.BindEnv("admin.password", "ADMIN_PASSWORD")
+	viper.BindEnv("server.port", "PANEL_PORT")
+	viper.BindEnv("database.path", "DATABASE_PATH")
+	viper.BindEnv("wireguard.dns", "WG_DNS")
+	viper.BindEnv("wireguard.subnet", "WG_NETWORK")
 	viper.BindEnv("wireguard.server_endpoint", "WG_SERVER_ENDPOINT")
 	viper.BindEnv("wireguard.server_public_key", "WG_SERVER_PUBLIC_KEY")
 

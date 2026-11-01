@@ -47,12 +47,12 @@ type CreatePeerRequest struct {
 }
 
 type PeerResponse struct {
-	ID              int64     `json:"id"`
-	Name            string    `json:"name"`
-	PublicKey       string    `json:"public_key"`
-	AssignedIP      string    `json:"assigned_ip"`
-	Enabled         bool      `json:"enabled"`
-	CreatedAt       time.Time `json:"created_at"`
+	ID         int64     `json:"id"`
+	Name       string    `json:"name"`
+	PublicKey  string    `json:"public_key"`
+	AssignedIP string    `json:"assigned_ip"`
+	Enabled    bool      `json:"enabled"`
+	CreatedAt  time.Time `json:"created_at"`
 	// Real-time stats
 	IsOnline        bool      `json:"is_online"`
 	LatestHandshake time.Time `json:"latest_handshake,omitempty"`

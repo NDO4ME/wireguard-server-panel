@@ -519,9 +519,9 @@ export default function Dashboard({ onLogout, onSettings }: DashboardProps) {
 
       {/* Footer */}
       <footer className="app-footer">
-        <a href="https://www.layerweb.com.tr" target="_blank" rel="noopener noreferrer">
-          Powered by <strong>LayerWeb</strong>
-        </a>
+        <span>
+          Powered by <strong>NDO4ME</strong>
+        </span>
       </footer>
     </div>
   )

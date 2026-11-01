@@ -615,3 +615,22 @@
     padding: 20px;
   }
 }
+
+/* Tailscale version / update block */
+.hint.error {
+  color: #bf616a;
+}
+
+.tailscale-status code {
+  font-size: 0.8125rem;
+}
+
+.tailscale-status .status-badge .spin {
+  vertical-align: -2px;
+  margin-right: 4px;
+}
+
+.form-group .tailscale-actions {
+  margin-top: 12px;
+  margin-bottom: 12px;
+}

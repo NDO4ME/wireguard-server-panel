@@ -2,7 +2,7 @@
 set -e
 
 echo "=========================================="
-echo "  WireGuard Panel - Starting..."
+echo "  NDO4ME WireGuard Panel - Starting..."
 echo "=========================================="
 
 # IP forwarding is set via docker run sysctls
@@ -24,20 +24,22 @@ if [ ! -L /etc/wireguard ]; then
     ln -sf /data/wireguard /etc/wireguard
 fi
 
-# Start tailscaled if available
-if command -v tailscaled &> /dev/null; then
-    echo "Starting Tailscale daemon..."
-    mkdir -p /var/run/tailscale /var/lib/tailscale
-    tailscaled --state=/data/tailscale/tailscaled.state --socket=/var/run/tailscale/tailscaled.sock &
-    sleep 2
-fi
+# tailscaled is started and supervised by the panel itself (see pkg/tailscale),
+# which lets the admin panel restart it safely when Tailscale is updated.
+mkdir -p /var/run/tailscale /var/lib/tailscale
 
 # Static admin username - cannot be changed
-export ADMIN_USERNAME="layerweb"
+export ADMIN_USERNAME="ndo4me"
 
-# Always generate random JWT secret for security
-export JWT_SECRET=$(head -c 64 /dev/urandom | base64 | tr -d '\n=' | head -c 64)
-echo "Generated secure random JWT secret"
+# JWT secret: generated once and persisted so admin sessions survive restarts
+JWT_FILE="/data/db/.jwt_secret"
+if [ ! -s "$JWT_FILE" ]; then
+    ( umask 077; head -c 64 /dev/urandom | base64 | tr -d '\n=' | head -c 64 > "$JWT_FILE" )
+    echo "Generated secure random JWT secret"
+fi
+JWT_SECRET=$(cat "$JWT_FILE")
+export JWT_ACCESS_SECRET="${JWT_SECRET}"
+export JWT_REFRESH_SECRET="${JWT_SECRET}-refresh"
 
 # Set default admin password if not provided
 if [ -z "$ADMIN_PASSWORD" ]; then
@@ -150,21 +152,15 @@ echo "WireGuard Status:"
 wg show wg0
 echo ""
 
-# Update config file with environment variables
-CONFIG_FILE="/app/configs/config.yaml"
-if [ -f "$CONFIG_FILE" ]; then
-    sed -i "s|port:.*|port: ${PANEL_PORT}|" "$CONFIG_FILE"
-    sed -i "s|access_secret:.*|access_secret: \"${JWT_SECRET}\"|" "$CONFIG_FILE"
-    sed -i "s|refresh_secret:.*|refresh_secret: \"${JWT_SECRET}-refresh\"|" "$CONFIG_FILE"
-    sed -i "s|username:.*|username: \"${ADMIN_USERNAME}\"|" "$CONFIG_FILE"
-    sed -i "s|password:.*|password: \"${ADMIN_PASSWORD}\"|" "$CONFIG_FILE"
-    sed -i "s|path:.*data.*|path: \"${DATABASE_PATH}\"|" "$CONFIG_FILE"
-    sed -i "s|subnet:.*|subnet: \"${WG_NETWORK}\"|" "$CONFIG_FILE"
-    sed -i "s|dns:.*|dns: \"${WG_DNS}\"|" "$CONFIG_FILE"
-fi
+# Configuration is passed to the panel through environment variables
+# (no sed rewriting of config.yaml: it broke on special characters in passwords
+# and overwrote every "port:" key).
+export PANEL_PORT DATABASE_PATH WG_NETWORK WG_DNS ADMIN_PASSWORD
 
 # Export server endpoint for the Go application
-export WG_SERVER_ENDPOINT="${WG_HOST}:1881"
+# Public UDP port clients connect to (host side of the -p mapping)
+WG_PUBLIC_PORT="${WG_PUBLIC_PORT:-1881}"
+export WG_SERVER_ENDPOINT="${WG_HOST}:${WG_PUBLIC_PORT}"
 export WG_SERVER_PUBLIC_KEY="${SERVER_PUBLIC_KEY}"
 
 echo "=========================================="
@@ -172,10 +168,10 @@ echo "  WireGuard Panel Ready!"
 echo "=========================================="
 echo ""
 echo "  Panel URL: http://${WG_HOST}:${PANEL_PORT}"
-echo "  Username: layerweb (fixed)"
+echo "  Username: ndo4me (fixed)"
 echo "  Password: ${ADMIN_PASSWORD}"
 echo ""
-echo "  WireGuard Endpoint: ${WG_HOST}:1881/udp"
+echo "  WireGuard Endpoint: ${WG_HOST}:${WG_PUBLIC_PORT}/udp"
 echo "  Server Public Key: ${SERVER_PUBLIC_KEY}"
 echo ""
 echo "=========================================="

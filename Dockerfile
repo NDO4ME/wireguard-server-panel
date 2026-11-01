@@ -1,82 +1,93 @@
-# Build stage - Go backend
-FROM golang:1.21-alpine AS builder
+# syntax=docker/dockerfile:1
 
-# Install build dependencies for CGO (SQLite requires it)
-RUN apk add --no-cache git make gcc musl-dev
+# ---------------------------------------------------------------------------
+# Build stage - Go backend (glibc, CGO for SQLite)
+# ---------------------------------------------------------------------------
+FROM golang:1.26-bookworm AS builder
+
+ARG APP_VERSION=dev
 
 WORKDIR /app
 
-# Copy go mod files
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source code
 COPY . .
+RUN CGO_ENABLED=1 GOOS=linux go build -trimpath \
+    -ldflags "-s -w -X main.appVersion=${APP_VERSION}" \
+    -o wireguardpanel ./cmd/api
 
-# Build with CGO enabled for SQLite
-RUN CGO_ENABLED=1 GOOS=linux go build -a -ldflags '-linkmode external -extldflags "-static"' -o wireguardpanel ./cmd/api
-
+# ---------------------------------------------------------------------------
 # Build stage - Frontend
-FROM node:20-alpine AS frontend-builder
+# ---------------------------------------------------------------------------
+FROM node:24-alpine AS frontend-builder
 
 WORKDIR /app/web
 
 COPY web/package*.json ./
-# Install all dependencies (including devDependencies for build)
 RUN npm ci
 
 COPY web/ ./
 RUN npm run build
 
-# Final stage - Production
-FROM alpine:3.19
+# ---------------------------------------------------------------------------
+# Final stage - Ubuntu 24.04 (LTS)
+# ---------------------------------------------------------------------------
+FROM ubuntu:24.04
 
-LABEL maintainer="WireGuard Panel"
-LABEL description="WireGuard VPN Management Panel"
+LABEL org.opencontainers.image.title="NDO4ME WireGuard Panel" \
+      org.opencontainers.image.description="WireGuard VPN management panel with Tailscale integration" \
+      org.opencontainers.image.vendor="NDO4ME" \
+      org.opencontainers.image.licenses="MIT"
 
-# Install runtime dependencies including Tailscale
-RUN apk add --no-cache \
-    wireguard-tools \
-    iptables \
-    ip6tables \
-    iproute2 \
-    curl \
-    bash \
-    libgcc \
-    ca-certificates \
-    tzdata \
-    jq \
-    tailscale \
-    && rm -rf /var/cache/apk/* /tmp/*
+# Optional: pin a Tailscale version at build time (default: latest stable).
+# The admin panel can update Tailscale at runtime either way.
+ARG TAILSCALE_VERSION=""
 
-# Create non-root user for security (but we need root for WireGuard)
-# Running as root is required for network operations
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Create app directory
+# Runtime dependencies + Tailscale from the official stable apt repository.
+# The repository stays configured so the panel can update Tailscale in place.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        wireguard-tools \
+        iptables \
+        iproute2 \
+        curl \
+        bash \
+        ca-certificates \
+        tzdata \
+        jq \
+        tini \
+    && curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg \
+        -o /usr/share/keyrings/tailscale-archive-keyring.gpg \
+    && curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list \
+        -o /etc/apt/sources.list.d/tailscale.list \
+    && apt-get update \
+    && if [ -n "${TAILSCALE_VERSION}" ]; then \
+         apt-get install -y --no-install-recommends "tailscale=${TAILSCALE_VERSION}"; \
+       else \
+         apt-get install -y --no-install-recommends tailscale; \
+       fi \
+    && tailscale version \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* /tmp/*
+
 WORKDIR /app
 
-# Copy binary from builder
 COPY --from=builder /app/wireguardpanel .
-
-# Copy frontend from builder
 COPY --from=frontend-builder /app/web/dist ./web/dist
-
-# Copy config template
 COPY configs/config.yaml ./configs/config.yaml
 
-# Create unified data directory structure
-# /data will be the single external volume containing everything
-RUN mkdir -p /data/wireguard /data/db && \
-    chmod 700 /data/wireguard && \
+# Single external volume containing everything
+RUN mkdir -p /data/wireguard /data/db /data/tailscale && \
+    chmod 700 /data/wireguard /data/tailscale && \
     chmod 755 /data/db
 
-# Expose ports
 EXPOSE 1881/tcp
 EXPOSE 51820/udp
 
-# Environment variables with defaults
-# ADMIN_USERNAME is fixed to 'layerweb' in entrypoint
-# JWT_SECRET is auto-generated randomly in entrypoint for security
+# ADMIN_USERNAME is fixed to 'ndo4me' in the entrypoint
+# JWT secret is generated once and persisted in /data/db by the entrypoint
 # ADMIN_PASSWORD should be set at runtime via -e flag
 ENV WG_HOST="" \
     WG_PORT=51820 \
@@ -84,19 +95,18 @@ ENV WG_HOST="" \
     WG_DNS="1.1.1.1" \
     PANEL_PORT=1881 \
     DATABASE_PATH="/data/db/wireguard.db" \
+    TAILSCALE_AUTO_UPDATE="true" \
     TZ="UTC" \
     GOGC=100 \
     GOMEMLIMIT=512MiB
 
-# Define volume for persistent data
 VOLUME /data
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
     CMD curl -sf http://localhost:${PANEL_PORT}/api/health || exit 1
 
-# Copy and setup entrypoint
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
+# tini reaps zombie processes and forwards signals (tailscaled child process)
+ENTRYPOINT ["/usr/bin/tini", "--", "/docker-entrypoint.sh"]

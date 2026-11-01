@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ndo4me/wireguard-server-panel/internal/auth"
+	"github.com/ndo4me/wireguard-server-panel/internal/config"
+	"github.com/ndo4me/wireguard-server-panel/internal/db"
 	"golang.org/x/time/rate"
-	"wgeasygo/internal/auth"
-	"wgeasygo/internal/config"
-	"wgeasygo/internal/db"
 )
 
 // AuthMiddleware validates JWT access tokens or API tokens from Authorization header

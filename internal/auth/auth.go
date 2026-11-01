@@ -9,14 +9,14 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/ndo4me/wireguard-server-panel/internal/config"
 	"golang.org/x/crypto/bcrypt"
-	"wgeasygo/internal/config"
 )
 
 var (
-	ErrInvalidToken     = errors.New("invalid token")
-	ErrExpiredToken     = errors.New("token has expired")
-	ErrInvalidPassword  = errors.New("invalid password")
+	ErrInvalidToken    = errors.New("invalid token")
+	ErrExpiredToken    = errors.New("token has expired")
+	ErrInvalidPassword = errors.New("invalid password")
 )
 
 type Claims struct {
@@ -56,7 +56,7 @@ func GenerateAccessToken(userID int64, username string, cfg *config.JWTConfig) (
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Issuer:    "wgeasygo",
+			Issuer:    "ndo4me",
 		},
 	}
 

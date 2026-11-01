@@ -11,16 +11,16 @@ import (
 
 // ServerConfig holds WireGuard server configuration
 type ServerConfig struct {
-	Interface   string
-	Port        int
-	PrivateKey  string
-	PublicKey   string
-	Address     string
-	Network     string
-	DNS         string
-	PublicIP    string
-	PostUp      string
-	PostDown    string
+	Interface  string
+	Port       int
+	PrivateKey string
+	PublicKey  string
+	Address    string
+	Network    string
+	DNS        string
+	PublicIP   string
+	PostUp     string
+	PostDown   string
 }
 
 // Setup initializes WireGuard server on first run

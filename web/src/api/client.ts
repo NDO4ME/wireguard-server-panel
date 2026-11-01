@@ -288,6 +288,55 @@ class ApiClient {
   async getTailscaleRoutes(): Promise<TailscaleRoutes> {
     return this.request<TailscaleRoutes>('/tailscale/routes');
   }
+
+  async getTailscaleUpdateStatus(): Promise<TailscaleUpdateStatus> {
+    return this.request<TailscaleUpdateStatus>('/tailscale/update/status');
+  }
+
+  async checkTailscaleUpdate(): Promise<TailscaleResponse> {
+    return this.request<TailscaleResponse>('/tailscale/update/check', {
+      method: 'POST',
+    });
+  }
+
+  async applyTailscaleUpdate(): Promise<TailscaleResponse> {
+    return this.request<TailscaleResponse>('/tailscale/update/apply', {
+      method: 'POST',
+    });
+  }
+
+  async setTailscaleAutoUpdate(enabled: boolean): Promise<void> {
+    await this.request<{ success: boolean }>('/tailscale/update/auto', {
+      method: 'PUT',
+      body: JSON.stringify({ enabled }),
+    });
+  }
+}
+
+interface TailscaleUpdateResult {
+  time: string;
+  from: string;
+  to: string;
+  success: boolean;
+  rolled_back: boolean;
+  message: string;
+  auto: boolean;
+}
+
+interface TailscaleUpdateStatus {
+  installed: boolean;
+  supported: boolean;
+  unsupported_reason?: string;
+  current_version: string;
+  latest_version: string;
+  update_available: boolean;
+  auto_update: boolean;
+  checking: boolean;
+  updating: boolean;
+  checked_at?: string;
+  check_error?: string;
+  skipped_version?: string;
+  last_result?: TailscaleUpdateResult;
 }
 
 interface TailscalePeer {
@@ -356,4 +405,4 @@ interface ConnectionLog {
 }
 
 export const api = new ApiClient();
-export type { Peer, ApiError, Settings, ConnectionLog, TailscaleStatus, TailscalePeer, TailscaleRoute, TailscaleConnectResponse, TailscaleResponse };
+export type { Peer, ApiError, Settings, ConnectionLog, TailscaleStatus, TailscalePeer, TailscaleRoute, TailscaleConnectResponse, TailscaleResponse, TailscaleUpdateStatus, TailscaleUpdateResult };

@@ -4,11 +4,11 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ndo4me/wireguard-server-panel/internal/config"
+	"github.com/ndo4me/wireguard-server-panel/internal/db"
+	"github.com/ndo4me/wireguard-server-panel/internal/models"
+	"github.com/ndo4me/wireguard-server-panel/pkg/wgmanager"
 	"github.com/skip2/go-qrcode"
-	"wgeasygo/internal/config"
-	"wgeasygo/internal/db"
-	"wgeasygo/internal/models"
-	"wgeasygo/pkg/wgmanager"
 )
 
 type PeerHandler struct {

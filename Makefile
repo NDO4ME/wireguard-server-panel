@@ -1,93 +1,40 @@
-.PHONY: build run test clean install deps
+.PHONY: build web run test vet fmt docker clean help
 
-# Application name
-APP_NAME := wgeasygo
+APP_NAME := wireguardpanel
+IMAGE    := ghcr.io/ndo4me/wireguard-server-panel
 
-# Build directory
-BUILD_DIR := build
-
-# Go parameters
-GOCMD := go
-GOBUILD := $(GOCMD) build
-GOTEST := $(GOCMD) test
-GOGET := $(GOCMD) get
-GOMOD := $(GOCMD) mod
-
-# Build the application
+## build: Build the Go binary (CGO is required for SQLite)
 build:
-	@echo "Building $(APP_NAME)..."
-	CGO_ENABLED=1 $(GOBUILD) -ldflags="-s -w" -o $(APP_NAME) ./cmd/api
+	CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o $(APP_NAME) ./cmd/api
 
-# Build for production (static binary)
-build-prod:
-	@echo "Building $(APP_NAME) for production..."
-	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 $(GOBUILD) -ldflags="-s -w" -o $(APP_NAME) ./cmd/api
+## web: Build the frontend into web/dist
+web:
+	cd web && npm ci && npm run build
 
-# Run the application
-run: build
-	@echo "Running $(APP_NAME)..."
+## run: Build everything and run locally (needs root for WireGuard/Tailscale)
+run: web build
 	./$(APP_NAME)
 
-# Run with development config
-dev:
-	@echo "Running in development mode..."
-	GIN_MODE=debug ./$(APP_NAME)
-
-# Download dependencies
-deps:
-	@echo "Downloading dependencies..."
-	$(GOMOD) download
-	$(GOMOD) tidy
-
-# Run tests
+## test: Run Go tests
 test:
-	@echo "Running tests..."
-	$(GOTEST) -v ./...
+	go test ./...
 
-# Run tests with coverage
-test-coverage:
-	@echo "Running tests with coverage..."
-	$(GOTEST) -v -coverprofile=coverage.out ./...
-	$(GOCMD) tool cover -html=coverage.out -o coverage.html
+## vet: Static checks
+vet:
+	go vet ./...
 
-# Clean build artifacts
-clean:
-	@echo "Cleaning..."
-	rm -f $(APP_NAME)
-	rm -f coverage.out coverage.html
-	rm -rf $(BUILD_DIR)
-
-# Install to system
-install: build-prod
-	@echo "Installing..."
-	sudo bash scripts/install.sh
-
-# Format code
+## fmt: Format Go code
 fmt:
-	@echo "Formatting code..."
-	$(GOCMD) fmt ./...
+	gofmt -w cmd internal pkg
 
-# Lint code
-lint:
-	@echo "Linting code..."
-	golangci-lint run
+## docker: Build the Docker image locally
+docker:
+	docker build -t $(IMAGE):local .
 
-# Generate API documentation
-docs:
-	@echo "Generating API documentation..."
-	swag init -g cmd/api/main.go
+## clean: Remove build artifacts
+clean:
+	rm -rf $(APP_NAME) web/dist web/node_modules coverage.out
 
-# Help
+## help: List targets
 help:
-	@echo "Available targets:"
-	@echo "  build        - Build the application"
-	@echo "  build-prod   - Build for production"
-	@echo "  run          - Build and run"
-	@echo "  dev          - Run in development mode"
-	@echo "  deps         - Download dependencies"
-	@echo "  test         - Run tests"
-	@echo "  test-coverage - Run tests with coverage"
-	@echo "  clean        - Clean build artifacts"
-	@echo "  install      - Install to system"
-	@echo "  fmt          - Format code"
-	@echo "  lint         - Lint code"
+	@grep -E '^## ' Makefile | sed 's/^## //'

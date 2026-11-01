@@ -13,9 +13,9 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/ndo4me/wireguard-server-panel/internal/config"
+	"github.com/ndo4me/wireguard-server-panel/internal/models"
 	"golang.org/x/crypto/curve25519"
-	"wgeasygo/internal/config"
-	"wgeasygo/internal/models"
 )
 
 // Pre-compiled regex for IP validation (avoid compilation on every call)
@@ -43,12 +43,12 @@ var clientConfigTmpl = template.Must(template.New("config").Parse(clientConfigTe
 
 // PeerStats contains real-time statistics for a peer
 type PeerStats struct {
-	PublicKey         string    `json:"public_key"`
-	Endpoint          string    `json:"endpoint"`
-	LatestHandshake   time.Time `json:"latest_handshake"`
-	TransferRx        int64     `json:"transfer_rx"`
-	TransferTx        int64     `json:"transfer_tx"`
-	IsOnline          bool      `json:"is_online"`
+	PublicKey       string    `json:"public_key"`
+	Endpoint        string    `json:"endpoint"`
+	LatestHandshake time.Time `json:"latest_handshake"`
+	TransferRx      int64     `json:"transfer_rx"`
+	TransferTx      int64     `json:"transfer_tx"`
+	IsOnline        bool      `json:"is_online"`
 }
 
 // WGManager handles WireGuard operations

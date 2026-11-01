@@ -2,11 +2,13 @@ version: '3.8'
 
 services:
   wireguardpanel:
-    image: layerweb/wireguard-panel:latest
+    image: ghcr.io/ndo4me/wireguard-server-panel:latest
     # build: .  # Uncomment to build locally
     container_name: wireguardpanel
     hostname: wireguardpanel
     restart: unless-stopped
+    # tailscaled is stopped cleanly on shutdown / Tailscale updates
+    stop_grace_period: 40s
 
     # Required capabilities for WireGuard
     cap_add:
@@ -48,6 +50,8 @@ services:
       - DATABASE_PATH=/data/db/wireguard.db
       # Timezone
       - TZ=${TZ:-UTC}
+      # Automatic Tailscale updates (can also be toggled in the admin panel)
+      - TAILSCALE_AUTO_UPDATE=${TAILSCALE_AUTO_UPDATE:-true}
       # Memory optimization (supports 500+ peers)
       - GOGC=100
       - GOMEMLIMIT=512MiB

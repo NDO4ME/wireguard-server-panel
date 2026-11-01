@@ -647,7 +647,8 @@
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.app-footer a {
+.app-footer a,
+.app-footer span {
   color: rgba(255, 255, 255, 0.5);
   text-decoration: none;
   font-size: 0.875rem;

@@ -9,18 +9,23 @@ import (
 	"os/signal"
 	"runtime"
 	"runtime/debug"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"wgeasygo/internal/auth"
-	"wgeasygo/internal/config"
-	"wgeasygo/internal/db"
-	"wgeasygo/internal/handlers"
-	"wgeasygo/internal/middleware"
-	"wgeasygo/pkg/wgmanager"
-	"wgeasygo/pkg/wgserver"
+	"github.com/ndo4me/wireguard-server-panel/internal/auth"
+	"github.com/ndo4me/wireguard-server-panel/internal/config"
+	"github.com/ndo4me/wireguard-server-panel/internal/db"
+	"github.com/ndo4me/wireguard-server-panel/internal/handlers"
+	"github.com/ndo4me/wireguard-server-panel/internal/middleware"
+	"github.com/ndo4me/wireguard-server-panel/pkg/tailscale"
+	"github.com/ndo4me/wireguard-server-panel/pkg/wgmanager"
+	"github.com/ndo4me/wireguard-server-panel/pkg/wgserver"
 )
+
+// appVersion is overridden at build time: -ldflags "-X main.appVersion=1.2.3"
+var appVersion = "dev"
 
 func main() {
 	// Load configuration
@@ -81,11 +86,15 @@ func main() {
 	router.Use(middleware.SecurityHeaders())
 	router.Use(middleware.CORS()) // For development - configure properly for production
 
+	// Tailscale: one shared manager supervises tailscaled and handles updates
+	tsManager := tailscale.NewManager()
+	tsManager.ConfigureUpdater(db.DB, func() { restoreTailscaleRouting(cfg, tsManager, 30*time.Second) })
+
 	// Create handlers
 	authHandler := handlers.NewAuthHandler(cfg)
 	peerHandler := handlers.NewPeerHandler(cfg, wgManager)
 	settingsHandler := handlers.NewSettingsHandler(cfg)
-	tailscaleHandler := handlers.NewTailscaleHandler(cfg)
+	tailscaleHandler := handlers.NewTailscaleHandler(cfg, tsManager)
 
 	// Rate limiter for auth endpoints
 	rateLimiter := middleware.NewRateLimiter(
@@ -128,14 +137,18 @@ func main() {
 			}
 
 			// Tailscale
-			tailscale := protected.Group("/tailscale")
+			tsGroup := protected.Group("/tailscale")
 			{
-				tailscale.GET("/status", tailscaleHandler.GetStatus)
-				tailscale.POST("/connect", tailscaleHandler.Connect)
-				tailscale.POST("/disconnect", tailscaleHandler.Disconnect)
-				tailscale.POST("/routing/enable", tailscaleHandler.EnableRouting)
-				tailscale.POST("/routing/disable", tailscaleHandler.DisableRouting)
-				tailscale.GET("/routes", tailscaleHandler.GetRoutes)
+				tsGroup.GET("/status", tailscaleHandler.GetStatus)
+				tsGroup.POST("/connect", tailscaleHandler.Connect)
+				tsGroup.POST("/disconnect", tailscaleHandler.Disconnect)
+				tsGroup.POST("/routing/enable", tailscaleHandler.EnableRouting)
+				tsGroup.POST("/routing/disable", tailscaleHandler.DisableRouting)
+				tsGroup.GET("/routes", tailscaleHandler.GetRoutes)
+				tsGroup.GET("/update/status", tailscaleHandler.GetUpdateStatus)
+				tsGroup.POST("/update/check", tailscaleHandler.CheckUpdate)
+				tsGroup.POST("/update/apply", tailscaleHandler.ApplyUpdate)
+				tsGroup.PUT("/update/auto", tailscaleHandler.SetAutoUpdate)
 			}
 		}
 	}
@@ -145,7 +158,7 @@ func main() {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 	router.GET("/api/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok", "version": "1.0.0"})
+		c.JSON(200, gin.H{"status": "ok", "version": appVersion})
 	})
 
 	// Serve static frontend files
@@ -165,6 +178,20 @@ func main() {
 	// Create context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// Supervise tailscaled (Docker) and run the Tailscale auto-updater
+	var bg sync.WaitGroup
+	bg.Add(2)
+	go func() {
+		defer bg.Done()
+		tsManager.RunDaemon(ctx)
+	}()
+	go func() {
+		defer bg.Done()
+		tsManager.RunAutoUpdate(ctx, 6*time.Hour)
+	}()
+	// iptables rules do not survive a container restart: re-apply when enabled
+	go restoreTailscaleRouting(cfg, tsManager, 3*time.Minute)
 
 	// Start periodic maintenance (every hour)
 	go func() {
@@ -227,8 +254,15 @@ func main() {
 
 	log.Println("Shutting down server...")
 
-	// Cancel background tasks
+	// Cancel background tasks and wait for tailscaled to stop cleanly
 	cancel()
+	bgDone := make(chan struct{})
+	go func() { bg.Wait(); close(bgDone) }()
+	select {
+	case <-bgDone:
+	case <-time.After(25 * time.Second):
+		log.Println("Timed out waiting for background tasks")
+	}
 
 	// Stop rate limiter cleanup goroutine
 	rateLimiter.Stop()
@@ -249,6 +283,19 @@ func ensureAdminUser(cfg *config.Config) error {
 	exists, err := db.DB.UserExists(cfg.Admin.Username)
 	if err != nil {
 		return err
+	}
+
+	// Rebrand migration: older installs used the fixed username "layerweb".
+	// Rename it in place so the password, API token and sessions are kept.
+	if !exists && cfg.Admin.Username == "ndo4me" {
+		if legacy, lerr := db.DB.UserExists("layerweb"); lerr == nil && legacy {
+			if n, rerr := db.DB.RenameUser("layerweb", cfg.Admin.Username); rerr != nil {
+				return rerr
+			} else if n > 0 {
+				log.Printf("Migrated admin user layerweb -> %s", cfg.Admin.Username)
+				return nil
+			}
+		}
 	}
 
 	if !exists {
@@ -322,4 +369,26 @@ func autoConfigureWireGuard(cfg *config.Config) error {
 	}
 
 	return nil
+}
+
+// restoreTailscaleRouting re-applies the WireGuard -> Tailscale iptables rules
+// when routing is enabled in settings. It waits up to maxWait for Tailscale to
+// be connected (e.g. right after a container start or a daemon update).
+func restoreTailscaleRouting(cfg *config.Config, m *tailscale.Manager, maxWait time.Duration) {
+	if val, _ := db.DB.GetSetting("tailscale_routing_enabled"); val != "true" {
+		return
+	}
+	deadline := time.Now().Add(maxWait)
+	for time.Now().Before(deadline) {
+		if st, err := m.GetStatus(); err == nil && st != nil && st.Connected {
+			if err := m.SetupRouting(cfg.WireGuard.Subnet); err != nil {
+				log.Printf("Warning: failed to restore Tailscale routing: %v", err)
+			} else {
+				log.Println("Restored Tailscale routing rules")
+			}
+			return
+		}
+		time.Sleep(3 * time.Second)
+	}
+	log.Println("Tailscale not connected; routing rules not restored")
 }

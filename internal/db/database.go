@@ -8,7 +8,7 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
-	"wgeasygo/internal/models"
+	"github.com/ndo4me/wireguard-server-panel/internal/models"
 )
 
 type Database struct {
@@ -185,6 +185,19 @@ func (d *Database) UpdateUserAPIToken(userID int64, apiToken string) error {
 		apiToken, userID,
 	)
 	return err
+}
+
+// RenameUser changes a username in place, keeping password, API token and
+// sessions. Returns the number of affected rows.
+func (d *Database) RenameUser(oldName, newName string) (int64, error) {
+	res, err := d.conn.Exec(
+		"UPDATE users SET username = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?",
+		newName, oldName,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
 
 func (d *Database) UserExists(username string) (bool, error) {

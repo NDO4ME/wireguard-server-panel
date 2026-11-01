@@ -15,9 +15,11 @@ import {
   ExternalLink,
   Power,
   PowerOff,
-  Router
+  Router,
+  RefreshCw,
+  Download
 } from 'lucide-react'
-import { api, Settings as SettingsType, TailscaleStatus } from '../api/client'
+import { api, Settings as SettingsType, TailscaleStatus, TailscaleUpdateStatus } from '../api/client'
 import '../styles/settings.css'
 
 interface SettingsProps {
@@ -44,10 +46,33 @@ export default function Settings({ onBack }: SettingsProps) {
   const [tailscaleLoading, setTailscaleLoading] = useState(false)
   const [tailscaleMessage, setTailscaleMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null)
 
+  // Tailscale update state
+  const [tsUpdate, setTsUpdate] = useState<TailscaleUpdateStatus | null>(null)
+  const [tsUpdateError, setTsUpdateError] = useState<string | null>(null)
+
   useEffect(() => {
     fetchSettings()
     fetchTailscaleStatus()
+    fetchUpdateStatus()
   }, [])
+
+  // Poll while a version check or update is running (the update restarts tailscaled)
+  const tsBusy = !!(tsUpdate && (tsUpdate.checking || tsUpdate.updating))
+  useEffect(() => {
+    if (!tsBusy) return
+    const timer = setInterval(async () => {
+      try {
+        const st = await api.getTailscaleUpdateStatus()
+        setTsUpdate(st)
+        if (!st.checking && !st.updating) {
+          fetchTailscaleStatus()
+        }
+      } catch {
+        // panel briefly unreachable while tailscaled restarts; keep polling
+      }
+    }, 3000)
+    return () => clearInterval(timer)
+  }, [tsBusy])
 
   const fetchSettings = async () => {
     try {
@@ -159,6 +184,47 @@ export default function Settings({ onBack }: SettingsProps) {
       setTailscale(data)
     } catch (err) {
       console.error('Failed to load Tailscale status:', err)
+    }
+  }
+
+  const fetchUpdateStatus = async () => {
+    try {
+      setTsUpdate(await api.getTailscaleUpdateStatus())
+    } catch (err) {
+      console.error('Failed to load Tailscale update status:', err)
+    }
+  }
+
+  const handleCheckUpdate = async () => {
+    setTsUpdateError(null)
+    try {
+      await api.checkTailscaleUpdate()
+      setTsUpdate(prev => (prev ? { ...prev, checking: true } : prev))
+    } catch (err) {
+      setTsUpdateError(err instanceof Error ? err.message : 'Failed to check for updates')
+    }
+  }
+
+  const handleApplyUpdate = async () => {
+    if (!window.confirm('Update Tailscale now? tailscaled will restart and the connection may drop for a few seconds. The previous version is restored automatically if the update fails.')) {
+      return
+    }
+    setTsUpdateError(null)
+    try {
+      await api.applyTailscaleUpdate()
+      setTsUpdate(prev => (prev ? { ...prev, updating: true } : prev))
+    } catch (err) {
+      setTsUpdateError(err instanceof Error ? err.message : 'Failed to start update')
+    }
+  }
+
+  const handleToggleAutoUpdate = async (enabled: boolean) => {
+    setTsUpdateError(null)
+    try {
+      await api.setTailscaleAutoUpdate(enabled)
+      setTsUpdate(prev => (prev ? { ...prev, auto_update: enabled } : prev))
+    } catch (err) {
+      setTsUpdateError(err instanceof Error ? err.message : 'Failed to change auto-update')
     }
   }
 
@@ -584,6 +650,92 @@ export default function Settings({ onBack }: SettingsProps) {
                   )}
                 </div>
               </div>
+
+              {tsUpdate && (
+                <div className="form-group">
+                  <label>Version</label>
+                  <div className="tailscale-status">
+                    <code>{tsUpdate.current_version || 'unknown'}</code>
+                    {tsUpdate.update_available && (
+                      <span className="status-badge online">Update available: {tsUpdate.latest_version}</span>
+                    )}
+                    {!tsUpdate.update_available && tsUpdate.latest_version && !tsUpdate.checking && (
+                      <span className="status-badge online">Up to date</span>
+                    )}
+                    {tsUpdate.updating && (
+                      <span className="status-badge offline">
+                        <Loader2 size={12} className="spin" /> Updating...
+                      </span>
+                    )}
+                    {tsUpdate.checking && (
+                      <span className="status-badge offline">
+                        <Loader2 size={12} className="spin" /> Checking...
+                      </span>
+                    )}
+                  </div>
+
+                  {tsUpdateError && <div className="message error">{tsUpdateError}</div>}
+                  {tsUpdate.check_error && !tsUpdate.checking && (
+                    <span className="hint">Last check failed: {tsUpdate.check_error}</span>
+                  )}
+
+                  {tsUpdate.supported ? (
+                    <>
+                      <div className="tailscale-actions">
+                        <button
+                          type="button"
+                          onClick={handleCheckUpdate}
+                          className="btn-secondary"
+                          disabled={tsBusy}
+                        >
+                          <RefreshCw size={16} />
+                          Check for updates
+                        </button>
+                        {tsUpdate.update_available && (
+                          <button
+                            type="button"
+                            onClick={handleApplyUpdate}
+                            className="btn-primary"
+                            disabled={tsBusy}
+                          >
+                            <Download size={16} />
+                            Update to {tsUpdate.latest_version}
+                          </button>
+                        )}
+                      </div>
+
+                      <label className="toggle-label">
+                        <span>Automatic updates (stable channel)</span>
+                        <div className="toggle-switch">
+                          <input
+                            type="checkbox"
+                            checked={tsUpdate.auto_update}
+                            onChange={e => handleToggleAutoUpdate(e.target.checked)}
+                            disabled={tsBusy}
+                          />
+                          <span className="toggle-slider"></span>
+                        </div>
+                      </label>
+                      <span className="hint">
+                        Checks every 6 hours, verifies the new version after restarting tailscaled
+                        and rolls back automatically if anything fails.
+                        {tsUpdate.checked_at && ` Last check: ${new Date(tsUpdate.checked_at).toLocaleString()}.`}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="hint">
+                      Automatic updates are unavailable: {tsUpdate.unsupported_reason}
+                    </span>
+                  )}
+
+                  {tsUpdate.last_result && (
+                    <span className={`hint ${tsUpdate.last_result.success ? '' : 'error'}`}>
+                      Last update ({new Date(tsUpdate.last_result.time).toLocaleString()}
+                      {tsUpdate.last_result.auto ? ', automatic' : ', manual'}): {tsUpdate.last_result.message}
+                    </span>
+                  )}
+                </div>
+              )}
 
               <div className="form-group">
                 <label>Connection</label>

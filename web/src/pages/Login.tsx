@@ -18,8 +18,8 @@ export default function Login({ onLogin }: LoginProps) {
     setLoading(true)
 
     try {
-      // Always use 'layerweb' as username (static, cannot be changed)
-      const success = await api.login('layerweb', password)
+      // Always use 'ndo4me' as username (static, cannot be changed)
+      const success = await api.login('ndo4me', password)
       if (success) {
         onLogin()
       } else {
@@ -39,8 +39,8 @@ export default function Login({ onLogin }: LoginProps) {
           <div className="login-logo">
             <Shield size={28} />
           </div>
-          <h1>WireGuard</h1>
-          <p>VPN Management Panel</p>
+          <h1>NDO4ME</h1>
+          <p>WireGuard VPN Management Panel</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">

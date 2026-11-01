@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import { Shield, Lock, AlertCircle } from 'lucide-react'
+import { Icon } from '../components/Icon'
 import { api } from '../api/client'
-import '../styles/login.css'
 
 interface LoginProps {
   onLogin: () => void
@@ -18,14 +17,14 @@ export default function Login({ onLogin }: LoginProps) {
     setLoading(true)
 
     try {
-      // Always use 'ndo4me' as username (static, cannot be changed)
+      // The admin username is fixed and cannot be changed
       const success = await api.login('ndo4me', password)
       if (success) {
         onLogin()
       } else {
-        setError('Invalid password')
+        setError('Invalid password.')
       }
-    } catch (err) {
+    } catch {
       setError('Connection error. Please try again.')
     } finally {
       setLoading(false)
@@ -33,53 +32,50 @@ export default function Login({ onLogin }: LoginProps) {
   }
 
   return (
-    <div className="login-page">
-      <div className="login-card">
-        <div className="login-header">
-          <div className="login-logo">
-            <Shield size={28} />
+    <main className="auth">
+      <div className="auth-wrap">
+        <div className="auth-card">
+          <div className="auth-brand">
+            <span className="brand-lockup">
+              <Icon name="brand" className="brand-mark brand-mark-lg" />
+              <span className="brand-word">NDO4ME</span>
+            </span>
           </div>
-          <h1>NDO4ME</h1>
-          <p>WireGuard VPN Management Panel</p>
-        </div>
+          <h1>Sign in</h1>
+          <p className="ph-desc">Enter the admin password for this WireGuard server.</p>
 
-        <form onSubmit={handleSubmit} className="login-form">
           {error && (
-            <div className="login-error">
-              <AlertCircle size={16} />
-              <span>{error}</span>
+            <div className="msg msg-err" role="alert">
+              <Icon name="x-circle" />
+              <div className="msg-body">{error}</div>
             </div>
           )}
 
-          <div className="form-group">
-            <label htmlFor="password">
-              <Lock size={14} />
-              Password
+          <form onSubmit={handleSubmit}>
+            <label className="field">
+              <span className="lbl">Password</span>
+              <input
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                autoComplete="current-password"
+                autoFocus
+                required
+                spellCheck={false}
+              />
             </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter password"
-              required
-              autoComplete="current-password"
-              autoFocus
-            />
+            <button type="submit" className={loading ? 'btn btn-primary btn-block is-busy' : 'btn btn-primary btn-block'} disabled={loading}>
+              Sign in
+            </button>
+          </form>
+          <div className="auth-foot">
+            Forgot the password? Set <code>ADMIN_PASSWORD</code> and recreate the database as described in the README.
           </div>
-
-          <button type="submit" className="login-button" disabled={loading}>
-            {loading ? (
-              <>
-                <span className="spinner" />
-                Signing in...
-              </>
-            ) : (
-              'Sign In'
-            )}
-          </button>
-        </form>
+        </div>
+        <div className="auth-meta">
+          <Icon name="lock" /> Use HTTPS in production · repeated failures are rate-limited
+        </div>
       </div>
-    </div>
+    </main>
   )
 }

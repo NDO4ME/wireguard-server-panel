@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"runtime"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -168,7 +169,7 @@ func main() {
 	// SPA fallback - serve index.html for all non-API routes
 	router.NoRoute(func(c *gin.Context) {
 		// Don't serve index.html for API routes
-		if len(c.Request.URL.Path) >= 4 && c.Request.URL.Path[:4] == "/api" {
+		if path := c.Request.URL.Path; path == "/api" || strings.HasPrefix(path, "/api/") {
 			c.JSON(404, gin.H{"error": "Not found"})
 			return
 		}

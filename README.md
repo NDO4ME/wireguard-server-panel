@@ -105,13 +105,13 @@ Everything lives in the single `/data` volume:
 
 ## Usage
 
-1. Click **+**, enter a name (for example `Phone`) and create the client.
+1. Open **Clients**, click **New client**, enter a name (for example `Phone`) and create it.
 2. Scan the QR code with the WireGuard app or download the `.conf` file.
-3. Use the pencil, power, QR, download and trash icons to rename, disable, share or delete a client.
+3. Use the row actions (power, QR code, download, delete) to disable, share or remove a client; click a name to rename it.
 
 ### REST API
 
-The API token is shown on the **Settings** page and stays constant until the admin password changes.
+The API token is shown on the **API access** page and stays constant until the admin password changes.
 
 ```bash
 # List clients
@@ -136,13 +136,13 @@ The image ships Tailscale from the official stable apt repository. `tailscaled` 
 
 ### Connect and route
 
-1. Open **Settings → Tailscale Integration** and click **Connect**.
+1. Open **Tailscale** in the sidebar and click **Connect**.
 2. Open the displayed auth URL and sign in.
-3. Enable **Route WireGuard to Tailscale**. WireGuard clients can then reach tailnet peers (`100.x.y.z`) and advertised subnet routes without installing Tailscale. The iptables rules are idempotent and restored automatically after a restart.
+3. Enable **Route WireGuard clients into Tailscale**. WireGuard clients can then reach tailnet peers (`100.x.y.z`) and advertised subnet routes without installing Tailscale. The iptables rules are idempotent and restored automatically after a restart.
 
 ### Automatic updates
 
-**Settings → Tailscale Integration → Version** shows the installed and the latest stable version.
+**Tailscale → Version & updates** shows the installed and the latest stable version.
 
 - **Check for updates / Update to x.y.z** for manual control.
 - **Automatic updates** run every 6 hours when enabled.
@@ -210,7 +210,7 @@ docker start wireguardpanel   # new admin is created from ADMIN_PASSWORD
 
 - **Container does not start** – check `docker logs wireguardpanel`; the usual causes are a busy port, a missing `NET_ADMIN` capability or a kernel without WireGuard.
 - **Clients cannot connect** – allow UDP `1881` in the firewall, verify `wg show`, and check that the client endpoint matches `WG_HOST` and `WG_PUBLIC_PORT`.
-- **Tailscale update unavailable** – the Version section states the reason (not root, apt repository missing, externally managed daemon).
+- **Tailscale update unavailable** – the Version & updates panel states the reason (not root, apt repository missing, externally managed daemon).
 
 ## Security notes
 

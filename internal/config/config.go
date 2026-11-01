@@ -38,6 +38,7 @@ type WireGuardConfig struct {
 	Interface       string `mapstructure:"interface"`
 	ServerPublicKey string `mapstructure:"server_public_key"`
 	ServerEndpoint  string `mapstructure:"server_endpoint"`
+	EndpointHost    string `mapstructure:"endpoint_host"` // optional hostname shown in client configs
 	DNS             string `mapstructure:"dns"`
 	AllowedIPs      string `mapstructure:"allowed_ips"`
 	Subnet          string `mapstructure:"subnet"`

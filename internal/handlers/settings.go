@@ -8,6 +8,7 @@ import (
 	"github.com/ndo4me/wireguard-server-panel/internal/config"
 	"github.com/ndo4me/wireguard-server-panel/internal/db"
 	"github.com/ndo4me/wireguard-server-panel/internal/models"
+	"github.com/ndo4me/wireguard-server-panel/pkg/wgmanager"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -52,14 +53,16 @@ func (h *SettingsHandler) GetSettings(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, models.SettingsResponse{
-		DNS:            dns,
-		AllowedIPs:     allowedIPs,
-		LoggingEnabled: loggingEnabled,
-		APIToken:       apiToken,
-		LoginTitle:     settings["login_title"],
-		LoginHeading:   settings["login_heading"],
-		LoginLogo:      settings["login_logo"],
-		LoginAccent:    settings["login_accent"],
+		DNS:             dns,
+		AllowedIPs:      allowedIPs,
+		LoggingEnabled:  loggingEnabled,
+		APIToken:        apiToken,
+		EndpointHost:    h.config.WireGuard.EndpointHost,
+		DefaultEndpoint: h.config.WireGuard.ServerEndpoint,
+		LoginTitle:      settings["login_title"],
+		LoginHeading:    settings["login_heading"],
+		LoginLogo:       settings["login_logo"],
+		LoginAccent:     settings["login_accent"],
 	})
 }
 
@@ -73,10 +76,31 @@ func (h *SettingsHandler) UpdateSettings(c *gin.Context) {
 		return
 	}
 
+	if req.EndpointHost != nil {
+		if _, err := wgmanager.NormalizeEndpointHost(*req.EndpointHost); err != nil {
+			c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
+			return
+		}
+	}
+
 	// Login page appearance (validated as a whole before anything is stored)
 	if err := saveLoginPage(&req); err != nil {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
 		return
+	}
+
+	// Endpoint host shown in downloaded configs / QR codes (port stays fixed)
+	if req.EndpointHost != nil {
+		host, err := wgmanager.NormalizeEndpointHost(*req.EndpointHost)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
+			return
+		}
+		if err := db.DB.SetSetting("endpoint_host", host); err != nil {
+			c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "Failed to update endpoint"})
+			return
+		}
+		h.config.WireGuard.EndpointHost = host
 	}
 
 	// Update DNS

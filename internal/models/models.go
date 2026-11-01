@@ -83,10 +83,13 @@ type SettingsResponse struct {
 	AllowedIPs     string `json:"allowed_ips"`
 	LoggingEnabled bool   `json:"logging_enabled"`
 	APIToken       string `json:"api_token"`
-	LoginTitle     string `json:"login_title"`
-	LoginHeading   string `json:"login_heading"`
-	LoginLogo      string `json:"login_logo"`
-	LoginAccent    string `json:"login_accent"`
+	EndpointHost   string `json:"endpoint_host"`
+	// DefaultEndpoint is the detected server endpoint used while no host is set.
+	DefaultEndpoint string `json:"default_endpoint"`
+	LoginTitle      string `json:"login_title"`
+	LoginHeading    string `json:"login_heading"`
+	LoginLogo       string `json:"login_logo"`
+	LoginAccent     string `json:"login_accent"`
 }
 
 // LoginPage is the public, white-label appearance of the sign-in page.
@@ -102,6 +105,7 @@ type UpdateSettingsRequest struct {
 	AllowedIPs     *string `json:"allowed_ips,omitempty"`
 	LoggingEnabled *bool   `json:"logging_enabled,omitempty"`
 	AdminPassword  *string `json:"admin_password,omitempty"`
+	EndpointHost   *string `json:"endpoint_host,omitempty"`
 	LoginTitle     *string `json:"login_title,omitempty"`
 	LoginHeading   *string `json:"login_heading,omitempty"`
 	LoginLogo      *string `json:"login_logo,omitempty"`

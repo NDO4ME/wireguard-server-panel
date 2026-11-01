@@ -297,7 +297,7 @@ func (wg *WGManager) GenerateClientConfig(peer *models.Peer) (string, error) {
 		Address:         peer.AssignedIP,
 		DNS:             strings.TrimSpace(wg.config.DNS),
 		ServerPublicKey: wg.config.ServerPublicKey,
-		ServerEndpoint:  wg.config.ServerEndpoint,
+		ServerEndpoint:  ClientEndpoint(wg.config.ServerEndpoint, wg.config.EndpointHost),
 		AllowedIPs:      wg.config.AllowedIPs,
 	}
 

@@ -9,7 +9,7 @@ A self-hosted WireGuard VPN management panel with built-in Tailscale integration
 ## Features
 
 - **Client management** – create, rename, enable/disable and delete clients
-- **QR codes & config download** – onboard mobile and desktop clients in seconds
+- **QR codes & config download** – onboard mobile and desktop clients in seconds; optionally with a hostname as endpoint instead of the IP
 - **Live statistics** – online state, last handshake, transfer counters, endpoint
 - **Connection logging** – optional endpoint history per client
 - **White-label login page** – only a password field and a button; optional logo, heading, tab title and accent colour from Settings
@@ -112,7 +112,8 @@ Everything lives in the single `/data` volume:
 1. Open **Clients**, click **New client**, enter a name (for example `Phone`) and create it.
 2. Scan the QR code with the WireGuard app or download the `.conf` file.
 3. Use the row actions (power, QR code, download, delete) to disable, share or remove a client; click a name to rename it.
-4. Optional: **Settings → Login page** sets a logo, heading, browser tab title and accent colour for the sign-in page. By default it shows no name or text, only a password field and a button.
+4. Optional: **Settings → Client defaults → Endpoint host** replaces the server IP in downloaded configs and QR codes with a hostname (for example `vpn.example.com`). The port and the server stay unchanged, so when the server IP changes you only update the DNS record and existing clients keep working without new configs. Clients created before keep their old address inside the files already handed out, so use the hostname from the start.
+5. Optional: **Settings → Login page** sets a logo, heading, browser tab title and accent colour for the sign-in page. By default it shows no name or text, only a password field and a button.
 
 ### REST API
 

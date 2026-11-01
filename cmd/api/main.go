@@ -380,6 +380,14 @@ func loadSavedSettings(cfg *config.Config) error {
 		log.Printf("Loaded DNS from settings: %q", dns)
 	}
 
+	// Load the endpoint hostname override (client configs only; the port stays fixed)
+	if host, ok := settings["endpoint_host"]; ok && host != "" {
+		if h, herr := wgmanager.NormalizeEndpointHost(host); herr == nil {
+			cfg.WireGuard.EndpointHost = h
+			log.Printf("Client endpoint host: %s", h)
+		}
+	}
+
 	// Load AllowedIPs if saved
 	if allowedIPs, ok := settings["allowed_ips"]; ok && allowedIPs != "" {
 		cfg.WireGuard.AllowedIPs = allowedIPs

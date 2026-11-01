@@ -394,6 +394,8 @@ interface Settings {
   allowed_ips: string;
   logging_enabled: boolean;
   api_token: string;
+  endpoint_host: string;
+  default_endpoint: string;
   login_title: string;
   login_heading: string;
   login_logo: string;
@@ -412,6 +414,7 @@ interface UpdateSettingsRequest {
   allowed_ips?: string;
   logging_enabled?: boolean;
   admin_password?: string;
+  endpoint_host?: string;
   login_title?: string;
   login_heading?: string;
   login_logo?: string;

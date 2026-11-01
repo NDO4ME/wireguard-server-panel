@@ -11,6 +11,7 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
 
+  const [endpointHost, setEndpointHost] = useState('')
   const [dns, setDns] = useState('')
   const [allowedIPs, setAllowedIPs] = useState('')
   const [loggingEnabled, setLoggingEnabled] = useState(false)
@@ -26,6 +27,7 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
     try {
       const data = await api.getSettings()
       setSettings(data)
+      setEndpointHost(data.endpoint_host)
       setDns(data.dns)
       setAllowedIPs(data.allowed_ips)
       setLoggingEnabled(data.logging_enabled)
@@ -47,7 +49,7 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
 
   const dirty =
     !!settings &&
-    (dns !== settings.dns || allowedIPs !== settings.allowed_ips || loggingEnabled !== settings.logging_enabled || newPassword !== '' ||
+    (endpointHost !== settings.endpoint_host || dns !== settings.dns || allowedIPs !== settings.allowed_ips || loggingEnabled !== settings.logging_enabled || newPassword !== '' ||
       loginTitle !== settings.login_title || loginHeading !== settings.login_heading || loginLogo !== settings.login_logo || loginAccent !== settings.login_accent)
 
   const handleSave = async (e: React.FormEvent) => {
@@ -64,6 +66,7 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
     }
 
     const update: UpdateSettingsRequest = {}
+    if (endpointHost !== settings?.endpoint_host) update.endpoint_host = endpointHost.trim()
     if (dns !== settings?.dns) update.dns = dns
     if (allowedIPs !== settings?.allowed_ips) update.allowed_ips = allowedIPs
     if (loggingEnabled !== settings?.logging_enabled) update.logging_enabled = loggingEnabled
@@ -131,6 +134,15 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
             <section className="panel">
               <header className="panel-h"><h2><Icon name="globe" />Client defaults</h2></header>
               <div className="panel-b">
+                <label className="field">
+                  <span className="lbl">Endpoint host <span className="opt">optional</span></span>
+                  <input type="text" value={endpointHost} onChange={e => setEndpointHost(e.target.value)} placeholder={settings?.default_endpoint ? settings.default_endpoint.replace(/:\d+$/, '') : 'vpn.example.com'} spellCheck={false} autoCapitalize="off" />
+                  <span className="hint">
+                    Hostname or IP written into downloaded configs and QR codes instead of the detected address
+                    {settings?.default_endpoint && <> (<code>{settings.default_endpoint}</code>)</>}. The port stays fixed and the server is not changed.
+                    Point a DNS name here and clients keep working when the server IP changes.
+                  </span>
+                </label>
                 <label className="field">
                   <span className="lbl">DNS servers</span>
                   <input type="text" value={dns} onChange={e => setDns(e.target.value)} placeholder="1.1.1.1, 8.8.8.8" />

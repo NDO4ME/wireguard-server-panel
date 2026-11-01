@@ -269,7 +269,9 @@ func (wg *WGManager) GetPeerStats() (map[string]*PeerStats, error) {
 const clientConfigTemplate = `[Interface]
 PrivateKey = {{.PrivateKey}}
 Address = {{.Address}}/32
+{{- if .DNS}}
 DNS = {{.DNS}}
+{{- end}}
 
 [Peer]
 PublicKey = {{.ServerPublicKey}}
@@ -293,7 +295,7 @@ func (wg *WGManager) GenerateClientConfig(peer *models.Peer) (string, error) {
 	config := ClientConfig{
 		PrivateKey:      peer.PrivateKey,
 		Address:         peer.AssignedIP,
-		DNS:             wg.config.DNS,
+		DNS:             strings.TrimSpace(wg.config.DNS),
 		ServerPublicKey: wg.config.ServerPublicKey,
 		ServerEndpoint:  wg.config.ServerEndpoint,
 		AllowedIPs:      wg.config.AllowedIPs,

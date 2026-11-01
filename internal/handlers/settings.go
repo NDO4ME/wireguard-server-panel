@@ -30,7 +30,7 @@ func (h *SettingsHandler) GetSettings(c *gin.Context) {
 
 	// Default values
 	dns := h.config.WireGuard.DNS
-	if val, ok := settings["dns"]; ok && val != "" {
+	if val, ok := settings["dns"]; ok {
 		dns = val
 	}
 

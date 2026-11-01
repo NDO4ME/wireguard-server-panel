@@ -101,7 +101,7 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
                 <label className="field">
                   <span className="lbl">DNS servers</span>
                   <input type="text" value={dns} onChange={e => setDns(e.target.value)} placeholder="1.1.1.1, 8.8.8.8" />
-                  <span className="hint">Written into every client config. Comma separated.</span>
+                  <span className="hint">Written into every client config. Comma separated. Leave empty to omit the DNS line so clients keep their own resolver.</span>
                 </label>
                 <label className="field">
                   <span className="lbl">Allowed IPs</span>

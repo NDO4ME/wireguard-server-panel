@@ -372,9 +372,10 @@ func loadSavedSettings(cfg *config.Config) error {
 	}
 
 	// Load DNS if saved
-	if dns, ok := settings["dns"]; ok && dns != "" {
+	// An empty saved value is valid: clients then get no DNS line at all.
+	if dns, ok := settings["dns"]; ok {
 		cfg.WireGuard.DNS = dns
-		log.Printf("Loaded DNS from settings: %s", dns)
+		log.Printf("Loaded DNS from settings: %q", dns)
 	}
 
 	// Load AllowedIPs if saved

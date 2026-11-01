@@ -83,6 +83,18 @@ type SettingsResponse struct {
 	AllowedIPs     string `json:"allowed_ips"`
 	LoggingEnabled bool   `json:"logging_enabled"`
 	APIToken       string `json:"api_token"`
+	LoginTitle     string `json:"login_title"`
+	LoginHeading   string `json:"login_heading"`
+	LoginLogo      string `json:"login_logo"`
+	LoginAccent    string `json:"login_accent"`
+}
+
+// LoginPage is the public, white-label appearance of the sign-in page.
+type LoginPage struct {
+	Title   string `json:"title"`
+	Heading string `json:"heading"`
+	Logo    string `json:"logo"`
+	Accent  string `json:"accent"`
 }
 
 type UpdateSettingsRequest struct {
@@ -90,4 +102,8 @@ type UpdateSettingsRequest struct {
 	AllowedIPs     *string `json:"allowed_ips,omitempty"`
 	LoggingEnabled *bool   `json:"logging_enabled,omitempty"`
 	AdminPassword  *string `json:"admin_password,omitempty"`
+	LoginTitle     *string `json:"login_title,omitempty"`
+	LoginHeading   *string `json:"login_heading,omitempty"`
+	LoginLogo      *string `json:"login_logo,omitempty"`
+	LoginAccent    *string `json:"login_accent,omitempty"`
 }

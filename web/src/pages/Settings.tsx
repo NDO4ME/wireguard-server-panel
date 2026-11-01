@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
-import { api, Settings as SettingsType } from '../api/client'
+import { useState, useEffect, useRef } from 'react'
+import { api } from '../api/client'
+import type { Settings as SettingsType, UpdateSettingsRequest } from '../api/client'
 import Layout from '../components/Layout'
 import { Icon } from '../components/Icon'
+import LoginCard from '../components/LoginCard'
 
 export default function Settings({ onLogout }: { onLogout: () => void }) {
   const [settings, setSettings] = useState<SettingsType | null>(null)
@@ -14,6 +16,11 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
   const [loggingEnabled, setLoggingEnabled] = useState(false)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [loginTitle, setLoginTitle] = useState('')
+  const [loginHeading, setLoginHeading] = useState('')
+  const [loginLogo, setLoginLogo] = useState('')
+  const [loginAccent, setLoginAccent] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const load = async () => {
     try {
@@ -22,6 +29,10 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
       setDns(data.dns)
       setAllowedIPs(data.allowed_ips)
       setLoggingEnabled(data.logging_enabled)
+      setLoginTitle(data.login_title)
+      setLoginHeading(data.login_heading)
+      setLoginLogo(data.login_logo)
+      setLoginAccent(data.login_accent)
     } catch (err) {
       console.error('Failed to load settings:', err)
       setMessage({ kind: 'err', text: 'Failed to load settings.' })
@@ -36,7 +47,8 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
 
   const dirty =
     !!settings &&
-    (dns !== settings.dns || allowedIPs !== settings.allowed_ips || loggingEnabled !== settings.logging_enabled || newPassword !== '')
+    (dns !== settings.dns || allowedIPs !== settings.allowed_ips || loggingEnabled !== settings.logging_enabled || newPassword !== '' ||
+      loginTitle !== settings.login_title || loginHeading !== settings.login_heading || loginLogo !== settings.login_logo || loginAccent !== settings.login_accent)
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -51,10 +63,14 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
       return
     }
 
-    const update: { dns?: string; allowed_ips?: string; logging_enabled?: boolean; admin_password?: string } = {}
+    const update: UpdateSettingsRequest = {}
     if (dns !== settings?.dns) update.dns = dns
     if (allowedIPs !== settings?.allowed_ips) update.allowed_ips = allowedIPs
     if (loggingEnabled !== settings?.logging_enabled) update.logging_enabled = loggingEnabled
+    if (loginTitle !== settings?.login_title) update.login_title = loginTitle
+    if (loginHeading !== settings?.login_heading) update.login_heading = loginHeading
+    if (loginLogo !== settings?.login_logo) update.login_logo = loginLogo
+    if (loginAccent !== settings?.login_accent) update.login_accent = loginAccent
     if (newPassword) update.admin_password = newPassword
     if (Object.keys(update).length === 0) return
 
@@ -76,6 +92,23 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
     } finally {
       setSaving(false)
     }
+  }
+
+  const pickLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml'].includes(file.type)) {
+      setMessage({ kind: 'err', text: 'Logo must be a PNG, JPEG, WebP, GIF or SVG image.' })
+      return
+    }
+    if (file.size > 256 * 1024) {
+      setMessage({ kind: 'err', text: 'Logo must be smaller than 256 KB.' })
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => setLoginLogo(String(reader.result))
+    reader.readAsDataURL(file)
   }
 
   return (
@@ -133,6 +166,49 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
               </div>
             </section>
           </div>
+
+          <section className="panel">
+            <header className="panel-h"><h2><Icon name="eye" />Login page</h2></header>
+            <div className="panel-b login-editor">
+              <div>
+                <p className="hint hint-top">The sign-in page shows only a password field and a button. Everything below is optional and carries no product name.</p>
+                <label className="field">
+                  <span className="lbl">Logo <span className="opt">optional</span></span>
+                  <div className="logo-pick">
+                    <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" onChange={pickLogo} className="sr-only" tabIndex={-1} />
+                    <button type="button" className="btn btn-sm" onClick={() => fileRef.current?.click()}>
+                      <Icon name="upload" />{loginLogo ? 'Replace logo' : 'Upload logo'}
+                    </button>
+                    {loginLogo && (
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setLoginLogo('')}>
+                        <Icon name="trash" />Remove
+                      </button>
+                    )}
+                  </div>
+                  <span className="hint">PNG, JPEG, WebP, GIF or SVG up to 256 KB. Also used as the tab icon on the sign-in page.</span>
+                </label>
+                <label className="field">
+                  <span className="lbl">Heading <span className="opt">optional</span></span>
+                  <input type="text" value={loginHeading} maxLength={60} onChange={e => setLoginHeading(e.target.value)} placeholder="No heading" />
+                </label>
+                <label className="field">
+                  <span className="lbl">Browser tab title</span>
+                  <input type="text" value={loginTitle} maxLength={60} onChange={e => setLoginTitle(e.target.value)} placeholder="Sign in" />
+                </label>
+                <label className="field">
+                  <span className="lbl">Accent colour</span>
+                  <div className="accent-pick">
+                    <input type="color" value={/^#[0-9a-f]{6}$/i.test(loginAccent) ? loginAccent : '#2a8fdc'} onChange={e => setLoginAccent(e.target.value)} aria-label="Accent colour" />
+                    <input type="text" value={loginAccent} onChange={e => setLoginAccent(e.target.value.trim())} placeholder="#2a8fdc" maxLength={7} spellCheck={false} />
+                    {loginAccent && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setLoginAccent('')}>Reset</button>}
+                  </div>
+                </label>
+              </div>
+              <div className="login-preview" aria-label="Login page preview">
+                <LoginCard cfg={{ title: loginTitle, heading: loginHeading, logo: loginLogo, accent: loginAccent }} preview />
+              </div>
+            </div>
+          </section>
 
           <div className="submit-bar">
             <button type="submit" className={saving ? 'btn btn-primary is-busy' : 'btn btn-primary'} disabled={saving || !dirty}>

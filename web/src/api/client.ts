@@ -251,6 +251,12 @@ class ApiClient {
     });
   }
 
+  async getLoginPage(): Promise<LoginPageConfig> {
+    const response = await fetch('/api/v1/public/login-page', { cache: 'no-store' })
+    if (!response.ok) throw new Error('Failed to load login page')
+    return response.json()
+  }
+
   async getPeerLogs(ip: string): Promise<ConnectionLog[]> {
     const logs = await this.request<ConnectionLog[] | null>(`/peers/${ip}/logs`);
     return logs || [];
@@ -388,6 +394,17 @@ interface Settings {
   allowed_ips: string;
   logging_enabled: boolean;
   api_token: string;
+  login_title: string;
+  login_heading: string;
+  login_logo: string;
+  login_accent: string;
+}
+
+interface LoginPageConfig {
+  title: string;
+  heading: string;
+  logo: string;
+  accent: string;
 }
 
 interface UpdateSettingsRequest {
@@ -395,6 +412,10 @@ interface UpdateSettingsRequest {
   allowed_ips?: string;
   logging_enabled?: boolean;
   admin_password?: string;
+  login_title?: string;
+  login_heading?: string;
+  login_logo?: string;
+  login_accent?: string;
 }
 
 interface ConnectionLog {
@@ -405,4 +426,4 @@ interface ConnectionLog {
 }
 
 export const api = new ApiClient();
-export type { Peer, ApiError, Settings, ConnectionLog, TailscaleStatus, TailscalePeer, TailscaleRoute, TailscaleConnectResponse, TailscaleResponse, TailscaleUpdateStatus, TailscaleUpdateResult };
+export type { LoginPageConfig, UpdateSettingsRequest, Peer, ApiError, Settings, ConnectionLog, TailscaleStatus, TailscalePeer, TailscaleRoute, TailscaleConnectResponse, TailscaleResponse, TailscaleUpdateStatus, TailscaleUpdateResult };

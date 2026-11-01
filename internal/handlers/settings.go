@@ -56,15 +56,26 @@ func (h *SettingsHandler) GetSettings(c *gin.Context) {
 		AllowedIPs:     allowedIPs,
 		LoggingEnabled: loggingEnabled,
 		APIToken:       apiToken,
+		LoginTitle:     settings["login_title"],
+		LoginHeading:   settings["login_heading"],
+		LoginLogo:      settings["login_logo"],
+		LoginAccent:    settings["login_accent"],
 	})
 }
 
 func (h *SettingsHandler) UpdateSettings(c *gin.Context) {
 	var req models.UpdateSettingsRequest
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1<<20)
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error: "Invalid request",
 		})
+		return
+	}
+
+	// Login page appearance (validated as a whole before anything is stored)
+	if err := saveLoginPage(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
 		return
 	}
 

@@ -50,3 +50,27 @@ dialog.modal.modal-wide { width: min(640px, calc(100vw - 32px)); }
 }
 
 .empty-state .btn .ic { display: inline-block; width: 16px; height: 16px; margin: 0; color: currentColor; stroke-width: 1.75; }
+
+/* white-label login page */
+.auth-card { padding-top: 28px; }
+.auth-logo { display: flex; justify-content: center; margin-bottom: 20px; }
+.auth-logo img { max-width: 220px; max-height: 56px; object-fit: contain; }
+.auth-card h1 { margin-bottom: 20px; }
+.auth-card input:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 24%, transparent); }
+.auth-card .field:last-of-type { margin-bottom: 14px; }
+.auth-card .msg { margin-bottom: 14px; }
+
+/* login page editor in Settings */
+.login-editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.hint-top { margin: 0 0 14px; }
+.logo-pick, .accent-pick { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.accent-pick input[type="text"] { width: 110px; font-family: var(--mono); }
+.accent-pick input[type="color"] { width: 40px; height: 32px; padding: 2px; cursor: pointer; background: var(--inset); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.login-preview { display: grid; place-items: center; padding: 28px 16px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--bg); min-height: 240px; }
+.login-preview .auth-card { pointer-events: none; user-select: none; box-shadow: none; max-width: 320px; }
+@media (max-width: 900px) { .login-editor { grid-template-columns: minmax(0, 1fr); } }
+
+/* accent colour on the login card follows --primary (set per page, see LoginCard) */
+.auth-card .btn-primary { background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 88%, white), var(--primary)); border-color: color-mix(in srgb, var(--primary) 85%, black); }
+.auth-card .btn-primary:hover { background: linear-gradient(180deg, color-mix(in srgb, var(--primary-hover) 88%, white), var(--primary-hover)); border-color: var(--primary); }
+.auth-card .btn-primary:active { background: var(--primary-press); }

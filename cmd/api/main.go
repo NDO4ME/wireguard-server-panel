@@ -115,6 +115,8 @@ func main() {
 	v1 := router.Group("/api/v1")
 	{
 		// Auth routes (public)
+		v1.GET("/public/login-page", handlers.PublicLoginPage)
+
 		authGroup := v1.Group("/auth")
 		{
 			authGroup.POST("/login", rateLimiter.Middleware(), authHandler.Login)

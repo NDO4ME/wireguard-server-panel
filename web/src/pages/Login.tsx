@@ -1,25 +1,47 @@
-import { useState } from 'react'
-import { Icon } from '../components/Icon'
+import { useEffect, useState } from 'react'
+import type { FormEvent } from 'react'
 import { api } from '../api/client'
+import type { LoginPageConfig } from '../api/client'
+import LoginCard from '../components/LoginCard'
 
-interface LoginProps {
-  onLogin: () => void
-}
+const EMPTY: LoginPageConfig = { title: '', heading: '', logo: '', accent: '' }
 
-export default function Login({ onLogin }: LoginProps) {
+export default function Login({ onLogin }: { onLogin: () => void }) {
+  const [cfg, setCfg] = useState<LoginPageConfig | null>(null)
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    let alive = true
+    api.getLoginPage().then(c => alive && setCfg(c)).catch(() => alive && setCfg(EMPTY))
+    return () => { alive = false }
+  }, [])
+
+  // Neutral tab title; a configured logo doubles as the favicon.
+  useEffect(() => {
+    if (!cfg) return
+    const prevTitle = document.title
+    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+    const prevHref = link?.getAttribute('href') ?? null
+    document.title = cfg.title || 'Sign in'
+    if (link && cfg.logo) {
+      link.removeAttribute('type')
+      link.setAttribute('href', cfg.logo)
+    }
+    return () => {
+      document.title = prevTitle
+      if (link && prevHref !== null) link.setAttribute('href', prevHref)
+    }
+  }, [cfg])
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
-
     try {
       // The admin username is fixed and cannot be changed
-      const success = await api.login('ndo4me', password)
-      if (success) {
+      if (await api.login('ndo4me', password)) {
         onLogin()
       } else {
         setError('Invalid password.')
@@ -31,50 +53,12 @@ export default function Login({ onLogin }: LoginProps) {
     }
   }
 
+  if (!cfg) return <div className="boot" role="status" aria-label="Loading"><div className="boot-spin" /></div>
+
   return (
     <main className="auth">
       <div className="auth-wrap">
-        <div className="auth-card">
-          <div className="auth-brand">
-            <span className="brand-lockup">
-              <Icon name="brand" className="brand-mark brand-mark-lg" />
-              <span className="brand-word">NDO4ME</span>
-            </span>
-          </div>
-          <h1>Sign in</h1>
-          <p className="ph-desc">Enter the admin password for this WireGuard server.</p>
-
-          {error && (
-            <div className="msg msg-err" role="alert">
-              <Icon name="x-circle" />
-              <div className="msg-body">{error}</div>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            <label className="field">
-              <span className="lbl">Password</span>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                autoComplete="current-password"
-                autoFocus
-                required
-                spellCheck={false}
-              />
-            </label>
-            <button type="submit" className={loading ? 'btn btn-primary btn-block is-busy' : 'btn btn-primary btn-block'} disabled={loading}>
-              Sign in
-            </button>
-          </form>
-          <div className="auth-foot">
-            Forgot the password? Set <code>ADMIN_PASSWORD</code> and recreate the database as described in the README.
-          </div>
-        </div>
-        <div className="auth-meta">
-          <Icon name="lock" /> Use HTTPS in production · repeated failures are rate-limited
-        </div>
+        <LoginCard cfg={cfg} password={password} onPassword={setPassword} onSubmit={handleSubmit} error={error} loading={loading} />
       </div>
     </main>
   )

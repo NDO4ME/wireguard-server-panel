@@ -12,6 +12,7 @@ A self-hosted WireGuard VPN management panel with built-in Tailscale integration
 - **QR codes & config download** – onboard mobile and desktop clients in seconds
 - **Live statistics** – online state, last handshake, transfer counters, endpoint
 - **Connection logging** – optional endpoint history per client
+- **White-label login page** – only a password field and a button; optional logo, heading, tab title and accent colour from Settings
 - **REST API** – permanent API token for automation
 - **Tailscale integration** – route WireGuard clients into your tailnet
 - **Tailscale auto-update** – checks the official stable channel, updates in place, verifies and rolls back on failure
@@ -111,6 +112,7 @@ Everything lives in the single `/data` volume:
 1. Open **Clients**, click **New client**, enter a name (for example `Phone`) and create it.
 2. Scan the QR code with the WireGuard app or download the `.conf` file.
 3. Use the row actions (power, QR code, download, delete) to disable, share or remove a client; click a name to rename it.
+4. Optional: **Settings → Login page** sets a logo, heading, browser tab title and accent colour for the sign-in page. By default it shows no name or text, only a password field and a button.
 
 ### REST API
 
@@ -160,6 +162,52 @@ Pin a version at build time (the panel can still update it later):
 
 ```bash
 docker build --build-arg TAILSCALE_VERSION=1.80.3 -t wireguardpanel .
+```
+
+## Updating
+
+Your data lives in the `/data` volume and is kept across updates. Take a backup first (see [Backup and restore](#backup-and-restore)), then pull the new image and recreate the container.
+
+### Docker Compose
+
+```bash
+cd wireguard-server-panel
+docker compose pull                      # fetch the latest image
+docker compose up -d                     # recreate the container with it
+docker compose logs -f --tail=50         # watch it come up
+docker image prune -f                    # optional: remove the old image
+```
+
+### Docker run
+
+```bash
+docker pull ghcr.io/ndo4me/wireguard-server-panel:latest
+docker stop wireguardpanel               # waits for a clean shutdown (up to 40 s)
+docker rm wireguardpanel
+# run the same `docker run ...` command as in Quick start again (same -v volume)
+```
+
+### Check the result
+
+```bash
+docker ps --filter name=wireguardpanel                   # status should become "healthy"
+curl -s http://127.0.0.1:1881/api/health                 # panel answers
+docker exec wireguardpanel wg show                       # WireGuard peers are back
+docker exec wireguardpanel tailscale version             # installed Tailscale version
+```
+
+### Roll back
+
+Pin the previous release instead of `latest`, for example `image: ghcr.io/ndo4me/wireguard-server-panel:1.2.0` (or `:sha-<short>`) in `docker-compose.yml`, then run `docker compose up -d`. Available tags are listed under *Packages* on GitHub.
+
+### Tailscale only
+
+Tailscale is updated from the panel without touching the container: **Tailscale → Version & updates → Check for updates → Update**. The same can be done manually:
+
+```bash
+docker exec wireguardpanel apt-get update
+docker exec wireguardpanel apt-get install -y --only-upgrade tailscale
+docker restart wireguardpanel
 ```
 
 ## Operations

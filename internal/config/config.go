@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"strings"
 
@@ -86,15 +87,11 @@ func Load(configPath string) (*Config, error) {
 		return nil, err
 	}
 
-	// Validate critical settings
-	if config.JWT.AccessSecret == "change-me-in-production-access-secret" {
-		log.Println("WARNING: Using default JWT access secret. Set JWT_ACCESS_SECRET in production!")
-	}
-	if config.JWT.RefreshSecret == "change-me-in-production-refresh-secret" {
-		log.Println("WARNING: Using default JWT refresh secret. Set JWT_REFRESH_SECRET in production!")
-	}
-	if config.Admin.Password == "changeme123" {
-		log.Println("WARNING: Using default admin password. Change immediately!")
+	// Validate critical settings: a default or short JWT secret would let anyone forge tokens.
+	for name, v := range map[string]string{"JWT_ACCESS_SECRET": config.JWT.AccessSecret, "JWT_REFRESH_SECRET": config.JWT.RefreshSecret} {
+		if strings.HasPrefix(v, "change-me") || len(v) < 16 {
+			return nil, fmt.Errorf("%s is unset, default or shorter than 16 characters; set a long random value", name)
+		}
 	}
 
 	AppConfig = &config

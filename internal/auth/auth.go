@@ -1,9 +1,7 @@
 package auth
 
 import (
-	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"time"
@@ -103,25 +101,12 @@ func GetRefreshTokenExpiry(cfg *config.JWTConfig) time.Time {
 	return time.Now().Add(time.Duration(cfg.RefreshExpiryDays) * 24 * time.Hour)
 }
 
-// GenerateAPIToken creates a deterministic 43-character API token from password
-// Token stays constant unless password changes - uses fixed salt so same password = same token across instances
-func GenerateAPIToken(password string, _ string) string {
-	// Use fixed salt so token is deterministic based only on password
-	// This allows same password to generate same token on different servers/restarts
-	fixedSalt := "wireguard-panel-api-token-salt-v1"
-
-	// Use HMAC-SHA256 with password and fixed salt
-	h := hmac.New(sha256.New, []byte(fixedSalt))
-	h.Write([]byte(password))
-	hash := h.Sum(nil)
-
-	// Encode to base64url (URL-safe base64 without padding)
-	token := base64.RawURLEncoding.EncodeToString(hash)
-
-	// Ensure exactly 43 characters
-	if len(token) > 43 {
-		token = token[:43]
+// GenerateAPIToken creates a random 43-character API token (256 bits of entropy).
+// It is independent of the admin password, so it cannot be derived or brute-forced from it.
+func GenerateAPIToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
 	}
-
-	return token
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }

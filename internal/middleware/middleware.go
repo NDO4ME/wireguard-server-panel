@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"crypto/subtle"
 	"net/http"
 	"strings"
 	"sync"
@@ -54,7 +55,7 @@ func AuthMiddleware(cfg *config.JWTConfig) gin.HandlerFunc {
 		// If JWT validation failed, try API token (exactly 43 characters)
 		if len(tokenString) == 43 {
 			user, apiErr := db.DB.GetUserByAPIToken(tokenString)
-			if apiErr == nil {
+			if apiErr == nil && subtle.ConstantTimeCompare([]byte(user.APIToken), []byte(tokenString)) == 1 {
 				// Valid API token
 				c.Set("user_id", user.ID)
 				c.Set("username", user.Username)
@@ -164,38 +165,10 @@ func SecurityHeaders() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("X-Content-Type-Options", "nosniff")
 		c.Header("X-Frame-Options", "DENY")
-		c.Header("X-XSS-Protection", "1; mode=block")
+		c.Header("Cross-Origin-Resource-Policy", "same-origin")
+		c.Header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
-		c.Header("Content-Security-Policy", "default-src 'self'; img-src 'self' data:")
-		c.Next()
-	}
-}
-
-// CORS middleware - nginx proxy compatible
-func CORS() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		origin := c.GetHeader("Origin")
-
-		// If origin is present, reflect it back (allows any origin that sends the header)
-		// This is safe because we use SameSite=Strict cookies for CSRF protection
-		if origin != "" {
-			c.Header("Access-Control-Allow-Origin", origin)
-			c.Header("Access-Control-Allow-Credentials", "true")
-		} else {
-			// For same-origin requests or requests without Origin header
-			c.Header("Access-Control-Allow-Origin", "*")
-		}
-
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Requested-With")
-		c.Header("Access-Control-Expose-Headers", "Content-Length, Content-Type")
-		c.Header("Access-Control-Max-Age", "86400")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(http.StatusNoContent)
-			return
-		}
-
+		c.Header("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
 		c.Next()
 	}
 }

@@ -133,8 +133,11 @@ func (h *SettingsHandler) UpdateSettings(c *gin.Context) {
 		}
 
 		// Generate new API token from new password
-		newAPIToken := auth.GenerateAPIToken(*req.AdminPassword, h.config.JWT.AccessSecret)
-		if err := db.DB.UpdateUserAPIToken(user.ID, newAPIToken); err != nil {
+		newAPIToken, err := auth.GenerateAPIToken()
+		if err == nil {
+			err = db.DB.UpdateUserAPIToken(user.ID, newAPIToken)
+		}
+		if err != nil {
 			c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 				Error: "Failed to update API token",
 			})

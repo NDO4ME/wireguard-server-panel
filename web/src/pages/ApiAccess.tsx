@@ -80,7 +80,7 @@ export default function ApiAccess({ onLogout }: { onLogout: () => void }) {
                   <div className="msg-body">No token yet. Sign out and sign in again to generate it.</div>
                 </div>
               )}
-              <span className="hint">Derived from the admin password; constant until the password changes. Send it as a Bearer token.</span>
+              <span className="hint">Random and independent of the password; regenerated when the password changes. Send it as a Bearer token.</span>
             </div>
           </section>
 

@@ -41,10 +41,16 @@ JWT_SECRET=$(cat "$JWT_FILE")
 export JWT_ACCESS_SECRET="${JWT_SECRET}"
 export JWT_REFRESH_SECRET="${JWT_SECRET}-refresh"
 
-# Set default admin password if not provided
+# No default password: generate a random one on first start when none is given.
+# It is only used to create the admin user the first time.
 if [ -z "$ADMIN_PASSWORD" ]; then
-    export ADMIN_PASSWORD="admin"
-    echo "WARNING: Using default admin password. Set ADMIN_PASSWORD env var for security."
+    PW_FILE="/data/db/.admin_password"
+    if [ ! -s "$PW_FILE" ]; then
+        ( umask 077; head -c 48 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 20 > "$PW_FILE" )
+        echo "ADMIN_PASSWORD not set - generated a random admin password: $(cat "$PW_FILE")"
+        echo "It is also stored in $PW_FILE; delete that file after you changed the password."
+    fi
+    export ADMIN_PASSWORD="$(cat "$PW_FILE")"
 fi
 
 # Get public IP if not set

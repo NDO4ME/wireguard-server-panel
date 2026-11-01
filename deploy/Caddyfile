@@ -1,0 +1,16 @@
+# Caddy reverse proxy for the NDO4ME WireGuard panel.
+# Caddy obtains and renews the HTTPS certificate automatically.
+# Replace vpn.example.com with your domain (DNS A/AAAA record -> this server).
+
+vpn.example.com {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	# The panel only listens on 127.0.0.1:1881. Caddy sets X-Forwarded-For
+	# to the real client address, which the panel trusts from local proxies.
+	reverse_proxy 127.0.0.1:1881
+}

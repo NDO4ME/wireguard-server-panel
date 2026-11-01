@@ -26,8 +26,8 @@ services:
 
     # Port mappings
     ports:
-      # Web Panel (TCP)
-      - "1881:1881/tcp"
+      # Web Panel (TCP) - localhost only, publish it through Caddy (see README)
+      - "127.0.0.1:1881:1881/tcp"
       # WireGuard VPN (UDP)
       - "1881:51820/udp"
 
@@ -45,7 +45,7 @@ services:
       - WG_DNS=${WG_DNS:-1.1.1.1}
       # Panel settings
       - PANEL_PORT=1881
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       # Database
       - DATABASE_PATH=/data/db/wireguard.db
       # Timezone

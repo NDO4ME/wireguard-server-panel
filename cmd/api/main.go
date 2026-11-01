@@ -51,6 +51,9 @@ func main() {
 	if err := ensureAdminUser(cfg); err != nil {
 		log.Fatalf("Failed to create admin user: %v", err)
 	}
+	if err := ensureAPIToken(cfg); err != nil {
+		log.Fatalf("Failed to prepare API token: %v", err)
+	}
 
 	// Auto-detect WireGuard server configuration
 	if err := autoConfigureWireGuard(cfg); err != nil {
@@ -85,7 +88,12 @@ func main() {
 	// Only Recovery middleware - no request logging to reduce log volume
 	router.Use(gin.Recovery())
 	router.Use(middleware.SecurityHeaders())
-	router.Use(middleware.CORS()) // For development - configure properly for production
+
+	// Only trust X-Forwarded-For from a local reverse proxy (Caddy). The panel is
+	// published on 127.0.0.1 only, so direct clients can never spoof their IP.
+	if err := router.SetTrustedProxies(trustedProxies()); err != nil {
+		log.Fatalf("Invalid TRUSTED_PROXIES: %v", err)
+	}
 
 	// Tailscale: one shared manager supervises tailscaled and handles updates
 	tsManager := tailscale.NewManager()
@@ -279,6 +287,42 @@ func main() {
 	log.Println("Server exited gracefully")
 }
 
+// trustedProxies returns the proxy CIDRs allowed to set X-Forwarded-For.
+// Default: loopback and private ranges (reverse proxy on the same host or Docker bridge).
+func trustedProxies() []string {
+	if v := strings.TrimSpace(os.Getenv("TRUSTED_PROXIES")); v != "" {
+		var out []string
+		for _, p := range strings.Split(v, ",") {
+			if p = strings.TrimSpace(p); p != "" {
+				out = append(out, p)
+			}
+		}
+		return out
+	}
+	return []string{"127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"}
+}
+
+// ensureAPIToken makes sure the admin has a random API token. Tokens derived from
+// the password by older releases are rotated once.
+func ensureAPIToken(cfg *config.Config) error {
+	user, err := db.DB.GetUserByUsername(cfg.Admin.Username)
+	if err != nil {
+		return err
+	}
+	if v, _ := db.DB.GetSetting("api_token_v2"); v == "1" && user.APIToken != "" {
+		return nil
+	}
+	tok, err := auth.GenerateAPIToken()
+	if err != nil {
+		return err
+	}
+	if err := db.DB.UpdateUserAPIToken(user.ID, tok); err != nil {
+		return err
+	}
+	log.Println("API token regenerated (random, no longer derived from the password); update API clients")
+	return db.DB.SetSetting("api_token_v2", "1")
+}
+
 // ensureAdminUser creates the initial admin user if it doesn't exist
 func ensureAdminUser(cfg *config.Config) error {
 	exists, err := db.DB.UserExists(cfg.Admin.Username)
@@ -300,6 +344,10 @@ func ensureAdminUser(cfg *config.Config) error {
 	}
 
 	if !exists {
+		switch cfg.Admin.Password {
+		case "", "admin", "changeme123":
+			return fmt.Errorf("refusing to create the admin user with a default password; set ADMIN_PASSWORD")
+		}
 		passwordHash, err := auth.HashPassword(cfg.Admin.Password, cfg.Security.BcryptCost)
 		if err != nil {
 			return err

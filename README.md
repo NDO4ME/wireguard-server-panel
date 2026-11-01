@@ -21,7 +21,8 @@ A self-hosted WireGuard VPN management panel with built-in Tailscale integration
 
 - Docker (Compose v2 recommended)
 - Linux host with WireGuard support (kernel 5.6+ or `wireguard-dkms`)
-- TCP port `1881` for the panel, UDP port for WireGuard (default `1881`)
+- TCP port `1881` for the panel (bound to `127.0.0.1` only, published through Caddy), UDP port for WireGuard (default `1881`)
+- A domain name pointing to the server (for automatic HTTPS with Caddy)
 - Outbound access to `pkgs.tailscale.com` (only for Tailscale updates)
 
 ## Quick start
@@ -32,8 +33,9 @@ A self-hosted WireGuard VPN management panel with built-in Tailscale integration
 git clone https://github.com/NDO4ME/wireguard-server-panel.git
 cd wireguard-server-panel
 
-# Set a strong password (also possible via a .env file)
-export ADMIN_PASSWORD='change-me'
+# Set a strong password (also possible via a .env file).
+# If you skip this, a random password is generated and printed once in the logs.
+export ADMIN_PASSWORD='use-a-long-random-password'
 
 docker compose up -d
 docker compose logs -f
@@ -52,22 +54,22 @@ docker run -d \
   --sysctl net.ipv4.conf.all.src_valid_mark=1 \
   --device /dev/net/tun:/dev/net/tun \
   --stop-timeout 40 \
-  -p 1881:1881/tcp \
+  -p 127.0.0.1:1881:1881/tcp \
   -p 1881:51820/udp \
   -v wireguard-data:/data \
-  -e ADMIN_PASSWORD='change-me' \
+  -e ADMIN_PASSWORD='use-a-long-random-password' \
   --restart unless-stopped \
   ghcr.io/ndo4me/wireguard-server-panel:latest
 ```
 
-Open `http://YOUR_SERVER_IP:1881` and sign in:
+The panel is reachable only from the server itself (`http://127.0.0.1:1881`). Publish it with Caddy as described under [Reverse proxy (Caddy)](#reverse-proxy-caddy), then open `https://vpn.example.com` and sign in:
 
 | Field    | Value                              |
 |----------|------------------------------------|
 | Username | `ndo4me`                           |
-| Password | the value of `ADMIN_PASSWORD` (default `admin` – change it) |
+| Password | the value of `ADMIN_PASSWORD` (if unset, a random one is printed once in `docker logs`) |
 
-> **Upgrading from an older release:** the fixed admin username changed from `layerweb` to `ndo4me`. It is migrated automatically; password, API token and sessions are kept.
+> **Upgrading from an older release:** the fixed admin username changed from `layerweb` to `ndo4me`. It is migrated automatically; password and sessions are kept; the API token is rotated once (it is no longer derived from the password).
 
 ## Configuration
 
@@ -75,7 +77,7 @@ All settings are environment variables.
 
 | Variable                | Default        | Description |
 |-------------------------|----------------|-------------|
-| `ADMIN_PASSWORD`        | `admin`        | Admin password |
+| `ADMIN_PASSWORD`        | random         | Initial admin password (a weak default is refused) |
 | `WG_HOST`               | auto-detected  | Public IP or hostname used in client configs |
 | `WG_NETWORK`            | `10.8.0.0/24`  | VPN subnet (up to 253 clients per /24) |
 | `WG_DNS`                | `1.1.1.1`      | DNS pushed to clients |
@@ -83,13 +85,14 @@ All settings are environment variables.
 | `WG_PUBLIC_PORT`        | `1881`         | UDP port clients connect to (host side of `-p`) |
 | `PANEL_PORT`            | `1881`         | Panel HTTP port |
 | `TAILSCALE_AUTO_UPDATE` | `true`         | Default for automatic Tailscale updates (the panel toggle overrides it) |
+| `TRUSTED_PROXIES`       | loopback + private ranges | Comma separated CIDRs allowed to set `X-Forwarded-For` |
 | `TZ`                    | `UTC`          | Timezone |
 
 ### Ports
 
 | Port | Protocol | Purpose |
 |------|----------|---------|
-| 1881 | TCP      | Web panel and API |
+| 1881 | TCP      | Web panel and API (`127.0.0.1` only; Caddy serves 80/443) |
 | 1881 | UDP      | WireGuard (mapped to 51820 in the container) |
 
 ### Persistent data
@@ -111,21 +114,21 @@ Everything lives in the single `/data` volume:
 
 ### REST API
 
-The API token is shown on the **API access** page and stays constant until the admin password changes.
+The API token is shown on the **API access** page and is random and independent of the password. It changes only when the admin password changes.
 
 ```bash
 # List clients
-curl -H "Authorization: Bearer $TOKEN" http://YOUR_SERVER:1881/api/v1/peers
+curl -H "Authorization: Bearer $TOKEN" https://vpn.example.com/api/v1/peers
 
 # Create a client
-curl -X POST http://YOUR_SERVER:1881/api/v1/peers \
+curl -X POST https://vpn.example.com/api/v1/peers \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"name": "My Phone"}'
 
 # Delete a client
 curl -X DELETE -H "Authorization: Bearer $TOKEN" \
-  http://YOUR_SERVER:1881/api/v1/peers/10.8.0.2
+  https://vpn.example.com/api/v1/peers/10.8.0.2
 ```
 
 Health check: `GET /api/health`.
@@ -168,21 +171,30 @@ docker exec wireguardpanel tailscale version
 docker restart wireguardpanel
 ```
 
-### Reverse proxy (nginx)
+### Reverse proxy (Caddy)
 
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name vpn.example.com;
+The panel listens on `127.0.0.1:1881` only. [Caddy](https://caddyserver.com) publishes it over HTTPS and handles the certificate automatically. Ready-made file: [`deploy/Caddyfile`](deploy/Caddyfile).
 
-    location / {
-        proxy_pass http://127.0.0.1:1881;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
+```caddyfile
+vpn.example.com {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	reverse_proxy 127.0.0.1:1881
 }
 ```
+
+```bash
+sudo apt install -y caddy                       # or see caddyserver.com/docs/install
+sudo cp deploy/Caddyfile /etc/caddy/Caddyfile   # edit the domain first
+sudo systemctl reload caddy
+```
+
+Open ports 80 and 443 (TCP) for Caddy and the WireGuard UDP port. Do not publish 1881/tcp. Caddy sets `X-Forwarded-For` itself; if Caddy runs in another container, set `TRUSTED_PROXIES` to its network.
 
 ### Backup and restore
 
@@ -214,9 +226,12 @@ docker start wireguardpanel   # new admin is created from ADMIN_PASSWORD
 
 ## Security notes
 
-- Change the default admin password immediately and serve the panel over HTTPS.
+- The panel port is bound to `127.0.0.1`; serve it over HTTPS with Caddy.
+- There is no default password: set `ADMIN_PASSWORD` or use the random one printed on first start.
+- The panel refuses to start with a default or short JWT secret (the Docker image generates a strong one).
+- The API token is random (256 bit), never derived from the password, and rotated when the password changes. Upgrading from a release that derived it from the password rotates it once; update your API clients.
 - The JWT secret is generated once and persisted in `/data/db`, so sessions survive restarts.
-- Login is rate limited; passwords are stored as bcrypt hashes.
+- Login is rate limited per client IP (`X-Forwarded-For` is trusted from local proxies only); passwords are stored as bcrypt hashes.
 - Client private keys are stored in the SQLite database **unencrypted** – protect the `/data` volume and backups accordingly.
 
 ## Architecture

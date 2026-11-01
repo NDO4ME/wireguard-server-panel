@@ -47,18 +47,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// Generate deterministic API token from password
-	apiToken := auth.GenerateAPIToken(req.Password, h.config.JWT.AccessSecret)
-
-	// Update API token in database if it changed (or first time)
-	if user.APIToken != apiToken {
-		if err := db.DB.UpdateUserAPIToken(user.ID, apiToken); err != nil {
-			c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-				Error: "Failed to update API token",
-			})
-			return
-		}
-	}
+	apiToken := user.APIToken
 
 	// Generate access token
 	accessToken, err := auth.GenerateAccessToken(user.ID, user.Username, &h.config.JWT)

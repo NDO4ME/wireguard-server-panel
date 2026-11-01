@@ -168,7 +168,7 @@ func (m *Manager) Up() (*Status, error) {
 
 	// Run tailscale up with --accept-routes to accept advertised routes
 	// Use timeout context to not wait forever
-	cmd := exec.Command("timeout", "5", "tailscale", "up", "--accept-routes", "--reset")
+	cmd := exec.Command("timeout", "5", "tailscale", "up", "--accept-routes", "--accept-dns=false", "--reset")
 	output, _ := cmd.CombinedOutput()
 	outputStr := string(output)
 
@@ -226,7 +226,7 @@ func (m *Manager) Up() (*Status, error) {
 		// Last resort: run tailscale up again and capture stderr
 		ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
 		defer cancel()
-		upOutput, _ := exec.CommandContext(ctx, "tailscale", "up", "--accept-routes").CombinedOutput()
+		upOutput, _ := exec.CommandContext(ctx, "tailscale", "up", "--accept-routes", "--accept-dns=false").CombinedOutput()
 		authURL = extractAuthURL(string(upOutput))
 	}
 

@@ -125,6 +125,7 @@ func (m *Manager) RunDaemon(ctx context.Context) {
 
 		started := time.Now()
 		log.Printf("tailscale: tailscaled started (pid %d)", cmd.Process.Pid)
+		go disableTailscaleDNS(ctx)
 
 		waitCh := make(chan error, 1)
 		go func() { waitCh <- cmd.Wait() }()
@@ -255,4 +256,21 @@ func sleepCtx(ctx context.Context, d time.Duration) {
 	case <-ctx.Done():
 	case <-t.C:
 	}
+}
+
+// disableTailscaleDNS turns MagicDNS / DNS management off so tailscaled never
+// rewrites the server's resolver (/etc/resolv.conf). Preferences are persisted in
+// the node state, so this also fixes nodes that were set up with accept-dns=true.
+// It is idempotent and runs every time tailscaled (re)starts, including after updates.
+func disableTailscaleDNS(ctx context.Context) {
+	if !waitDaemonReady(30 * time.Second) {
+		return
+	}
+	cctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	if out, err := exec.CommandContext(cctx, "tailscale", "set", "--accept-dns=false").CombinedOutput(); err != nil {
+		log.Printf("tailscale: could not disable DNS management: %v: %s", err, string(out))
+		return
+	}
+	log.Println("tailscale: DNS management disabled (accept-dns=false); the server resolver is left untouched")
 }

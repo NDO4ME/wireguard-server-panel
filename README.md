@@ -146,6 +146,10 @@ The image ships Tailscale from the official stable apt repository. `tailscaled` 
 2. Open the displayed auth URL and sign in.
 3. Enable **Route WireGuard clients into Tailscale**. WireGuard clients can then reach tailnet peers (`100.x.y.z`) and advertised subnet routes without installing Tailscale. The iptables rules are idempotent and restored automatically after a restart.
 
+### DNS
+
+Tailscale runs with **MagicDNS / DNS management disabled** (`--accept-dns=false`). `tailscaled` never rewrites the server's `/etc/resolv.conf`, so the host's own name resolution is unaffected. The setting is enforced every time `tailscaled` starts, also for nodes created by older releases. Tailnet peers are reached by their `100.x.y.z` address.
+
 ### Automatic updates
 
 **Tailscale → Version & updates** shows the installed and the latest stable version.

@@ -1,3 +1,5 @@
+import logoFull from '../theme/logo.webp'
+import logoMark from '../theme/logo-mark.webp'
 import { useEffect, useState, ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { Icon } from './Icon'
@@ -92,8 +94,8 @@ export default function Layout({ onLogout, actions, children }: LayoutProps) {
       <a className="skip" href="#main">Skip to content</a>
       <aside className="sb" aria-label="Sidebar">
         <NavLink to="/" className="sb-brand" aria-label="NDO4ME" data-label="NDO4ME">
-          <Icon name="brand" className="brand-mark" />
-          <span className="brand-word sb-logo-full">NDO4ME</span>
+          <img className="sb-logo-full" src={logoFull} width={124} height={31} alt="" draggable={false} />
+          <img className="sb-logo-mark" src={logoMark} width={34} height={20} alt="" draggable={false} />
         </NavLink>
         <nav className="sb-nav" aria-label="Main">
           <div className="sb-group">Manage</div>

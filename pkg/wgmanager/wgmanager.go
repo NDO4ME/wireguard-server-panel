@@ -331,3 +331,36 @@ func (wg *WGManager) SyncPeersToInterface(peers []models.Peer) error {
 	}
 	return nil
 }
+
+// Exclusive runs fn while no peer add/remove/save is in progress (used by the
+// package updater so the tools are never replaced mid-change).
+func (wg *WGManager) Exclusive(fn func()) {
+	wg.mu.Lock()
+	defer wg.mu.Unlock()
+	fn()
+}
+
+// InterfaceInfo describes the live WireGuard interface.
+type InterfaceInfo struct {
+	Name       string `json:"name"`
+	Up         bool   `json:"up"`
+	PublicKey  string `json:"public_key,omitempty"`
+	ListenPort int    `json:"listen_port,omitempty"`
+}
+
+// GetInterfaceInfo reads the first line of `wg show <if> dump`.
+func (wg *WGManager) GetInterfaceInfo() InterfaceInfo {
+	info := InterfaceInfo{Name: wg.config.Interface}
+	out, err := exec.Command("wg", "show", wg.config.Interface, "dump").Output()
+	if err != nil {
+		return info
+	}
+	first := strings.SplitN(string(out), "\n", 2)[0]
+	f := strings.Split(first, "\t")
+	if len(f) >= 3 {
+		info.Up = true
+		info.PublicKey = f[1]
+		info.ListenPort, _ = strconv.Atoi(f[2])
+	}
+	return info
+}

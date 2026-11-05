@@ -86,6 +86,7 @@ All settings are environment variables.
 | `WG_PUBLIC_PORT`        | `1881`         | UDP port clients connect to (host side of `-p`) |
 | `PANEL_PORT`            | `1881`         | Panel HTTP port |
 | `TAILSCALE_AUTO_UPDATE` | `true`         | Default for automatic Tailscale updates (the panel toggle overrides it) |
+| `WIREGUARD_AUTO_UPDATE` | `true`         | Default for automatic WireGuard tools updates (System page toggle overrides it) |
 | `TRUSTED_PROXIES`       | loopback + private ranges | Comma separated CIDRs allowed to set `X-Forwarded-For` |
 | `TZ`                    | `UTC`          | Timezone |
 

@@ -6,6 +6,7 @@ import Login from './pages/Login'
 import Clients from './pages/Clients'
 import Settings from './pages/Settings'
 import TailscalePage from './pages/Tailscale'
+import SystemPage from './pages/System'
 import ApiAccess from './pages/ApiAccess'
 
 function App() {
@@ -43,6 +44,7 @@ function App() {
         />
         <Route path="/" element={guard(<Clients onLogout={logout} />)} />
         <Route path="/tailscale" element={guard(<TailscalePage onLogout={logout} />)} />
+        <Route path="/system" element={guard(<SystemPage onLogout={logout} />)} />
         <Route path="/api-access" element={guard(<ApiAccess onLogout={logout} />)} />
         <Route path="/settings" element={guard(<Settings onLogout={logout} />)} />
         <Route path="*" element={<Navigate to="/" replace />} />

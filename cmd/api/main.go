@@ -23,6 +23,7 @@ import (
 	"github.com/ndo4me/wireguard-server-panel/pkg/tailscale"
 	"github.com/ndo4me/wireguard-server-panel/pkg/wgmanager"
 	"github.com/ndo4me/wireguard-server-panel/pkg/wgserver"
+	"github.com/ndo4me/wireguard-server-panel/pkg/wgupdate"
 )
 
 // appVersion is overridden at build time: -ldflags "-X main.appVersion=1.2.3"
@@ -105,6 +106,10 @@ func main() {
 	settingsHandler := handlers.NewSettingsHandler(cfg)
 	tailscaleHandler := handlers.NewTailscaleHandler(cfg, tsManager)
 
+	// WireGuard userspace tools: checked and updated like Tailscale, verified and rolled back on failure
+	wgUpdater := wgupdate.New(db.DB, cfg.WireGuard.Interface, wgManager.Exclusive)
+	systemHandler := handlers.NewSystemHandler(appVersion, wgManager, tsManager, wgUpdater)
+
 	// Rate limiter for auth endpoints
 	rateLimiter := middleware.NewRateLimiter(
 		cfg.Security.RateLimitRequests,
@@ -145,6 +150,16 @@ func main() {
 			{
 				settings.GET("", settingsHandler.GetSettings)
 				settings.PUT("", settingsHandler.UpdateSettings)
+			}
+
+			// System overview and WireGuard tools updates
+			sysGroup := protected.Group("/system")
+			{
+				sysGroup.GET("/status", systemHandler.GetStatus)
+				sysGroup.GET("/wireguard/update/status", systemHandler.GetWireGuardUpdate)
+				sysGroup.POST("/wireguard/update/check", systemHandler.CheckWireGuardUpdate)
+				sysGroup.POST("/wireguard/update/apply", systemHandler.ApplyWireGuardUpdate)
+				sysGroup.PUT("/wireguard/update/auto", systemHandler.SetWireGuardAutoUpdate)
 			}
 
 			// Tailscale
@@ -206,6 +221,9 @@ func main() {
 
 	// Disable clients whose expiry date has passed
 	go handlers.RunExpiryEnforcer(ctx, wgManager)
+
+	// Keep WireGuard tools current (verified, rolled back on failure)
+	go wgUpdater.Run(ctx, 6*time.Hour)
 
 	// Start periodic maintenance (every hour)
 	go func() {

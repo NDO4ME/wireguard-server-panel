@@ -96,6 +96,7 @@ ENV WG_HOST="" \
     PANEL_PORT=1881 \
     DATABASE_PATH="/data/db/wireguard.db" \
     TAILSCALE_AUTO_UPDATE="true" \
+    WIREGUARD_AUTO_UPDATE="true" \
     TZ="UTC" \
     GOGC=100 \
     GOMEMLIMIT=512MiB

@@ -265,6 +265,30 @@ class ApiClient {
     return logs || [];
   }
 
+  // System / WireGuard tools
+  async getSystemStatus(): Promise<SystemStatus> {
+    return this.request<SystemStatus>('/system/status');
+  }
+
+  async getWireGuardUpdateStatus(): Promise<WireGuardUpdateStatus> {
+    return this.request<WireGuardUpdateStatus>('/system/wireguard/update/status');
+  }
+
+  async checkWireGuardUpdate(): Promise<TailscaleResponse> {
+    return this.request<TailscaleResponse>('/system/wireguard/update/check', { method: 'POST' });
+  }
+
+  async applyWireGuardUpdate(): Promise<TailscaleResponse> {
+    return this.request<TailscaleResponse>('/system/wireguard/update/apply', { method: 'POST' });
+  }
+
+  async setWireGuardAutoUpdate(enabled: boolean): Promise<void> {
+    await this.request('/system/wireguard/update/auto', {
+      method: 'PUT',
+      body: JSON.stringify({ enabled }),
+    });
+  }
+
   // Tailscale methods
   async getTailscaleStatus(): Promise<TailscaleStatus> {
     return this.request<TailscaleStatus>('/tailscale/status');
@@ -321,6 +345,19 @@ class ApiClient {
     });
   }
 }
+
+interface SystemStatus {
+  panel_version: string;
+  go_version: string;
+  uptime_seconds: number;
+  kernel: string;
+  wireguard_tools: string;
+  tailscale_version: string;
+  interface: { name: string; up: boolean; public_key?: string; listen_port?: number };
+  clients: { total: number; enabled: number; online: number; expired: number };
+}
+
+type WireGuardUpdateStatus = TailscaleUpdateStatus;
 
 interface TailscaleUpdateResult {
   time: string;
@@ -432,4 +469,4 @@ interface ConnectionLog {
 }
 
 export const api = new ApiClient();
-export type { LoginPageConfig, UpdateSettingsRequest, Peer, ApiError, Settings, ConnectionLog, TailscaleStatus, TailscalePeer, TailscaleRoute, TailscaleConnectResponse, TailscaleResponse, TailscaleUpdateStatus, TailscaleUpdateResult };
+export type { SystemStatus, WireGuardUpdateStatus, LoginPageConfig, UpdateSettingsRequest, Peer, ApiError, Settings, ConnectionLog, TailscaleStatus, TailscalePeer, TailscaleRoute, TailscaleConnectResponse, TailscaleResponse, TailscaleUpdateStatus, TailscaleUpdateResult };

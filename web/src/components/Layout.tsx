@@ -16,6 +16,7 @@ interface NavItem {
 export const NAV: NavItem[] = [
   { to: '/', label: 'Clients', icon: 'users', title: 'Clients', desc: 'WireGuard clients, live connection state and traffic.' },
   { to: '/tailscale', label: 'Tailscale', icon: 'network', title: 'Tailscale', desc: 'Connect this server to your tailnet, route clients into it and keep Tailscale up to date.' },
+  { to: '/system', label: 'System', icon: 'gauge', title: 'System', desc: 'Versions, WireGuard interface health and automatic WireGuard tools updates.' },
   { to: '/api-access', label: 'API access', icon: 'key', title: 'API access', desc: 'Token and endpoints for automating the panel.' },
   { to: '/settings', label: 'Settings', icon: 'sliders', title: 'Settings', desc: 'Client defaults, logging and admin password.' },
 ]
@@ -99,14 +100,14 @@ export default function Layout({ onLogout, actions, children }: LayoutProps) {
         </NavLink>
         <nav className="sb-nav" aria-label="Main">
           <div className="sb-group">Manage</div>
-          {NAV.slice(0, 2).map(n => (
+          {NAV.slice(0, 3).map(n => (
             <NavLink key={n.to} to={n.to} end className="sb-item" data-label={n.label}>
               <Icon name={n.icon} />
               <span>{n.label}</span>
             </NavLink>
           ))}
           <div className="sb-group">Configure</div>
-          {NAV.slice(2).map(n => (
+          {NAV.slice(3).map(n => (
             <NavLink key={n.to} to={n.to} end className="sb-item" data-label={n.label}>
               <Icon name={n.icon} />
               <span>{n.label}</span>

@@ -91,6 +91,7 @@ All settings are environment variables.
 | `WG_PUBLIC_PORT`        | `1881`         | UDP port clients connect to (host side of `-p`) |
 | `PANEL_PORT`            | `1881`         | Panel HTTP port |
 | `TAILSCALE_AUTO_UPDATE` | `true`         | Default for automatic Tailscale updates (the panel toggle overrides it) |
+| `IP_OPTIONS_FILTER`     | `true`         | Drop inbound IPv4 packets with IP options inside the container (CVE-2026-98432 hardening) |
 | `WIREGUARD_AUTO_UPDATE` | `true`         | Default for automatic WireGuard tools updates (System page toggle overrides it) |
 | `TRUSTED_PROXIES`       | loopback + private ranges | Comma separated CIDRs allowed to set `X-Forwarded-For` |
 | `TZ`                    | `UTC`          | Timezone |
@@ -371,6 +372,7 @@ docker start wireguardpanel   # new admin is created from ADMIN_PASSWORD
 - The API token is random (256 bit), never derived from the password, and rotated when the password changes. Upgrading from a release that derived it from the password rotates it once; update your API clients.
 - The JWT secret is generated once and persisted in `/data/db`, so sessions survive restarts.
 - Login is rate limited per client IP (`X-Forwarded-For` is trusted from local proxies only); passwords are stored as bcrypt hashes.
+- **CVE-2026-98432 (Linux kernel IPv4 TCP use-after-free):** a container shares the host kernel, so the real fix is a patched **host** kernel (`apt update && apt full-upgrade`, then reboot, as soon as your distribution ships it). Inside the image the panel adds defence in depth: Multipath TCP is disabled for the panel listener (`GODEBUG=multipathtcp=0`) and in the container's network namespace, and inbound IPv4 packets carrying IP options (the exploit trigger) are dropped by an `iptables` rule. The rule needs the `xt_u32` kernel module; if the host lacks it the container starts normally and logs a notice. Set `IP_OPTIONS_FILTER=false` to skip the rule.
 - Client private keys are stored in the SQLite database **unencrypted** – protect the `/data` volume and backups accordingly.
 
 ## Architecture

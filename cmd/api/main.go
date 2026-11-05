@@ -1,3 +1,8 @@
+// CVE-2026-98432 (Linux kernel IPv4 TCP use-after-free): the known exploit path
+// needs a Multipath TCP listener, and Go 1.24+ opens MPTCP listeners by default.
+// The panel never needs MPTCP, so it is switched off for every listener.
+//go:debug multipathtcp=0
+
 package main
 
 import (

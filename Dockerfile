@@ -95,6 +95,8 @@ ENV WG_HOST="" \
     WG_DNS="1.1.1.1" \
     PANEL_PORT=1881 \
     DATABASE_PATH="/data/db/wireguard.db" \
+    GODEBUG="multipathtcp=0" \
+    IP_OPTIONS_FILTER="true" \
     TAILSCALE_AUTO_UPDATE="true" \
     WIREGUARD_AUTO_UPDATE="true" \
     TZ="UTC" \

@@ -12,6 +12,27 @@ if [ "$(cat /proc/sys/net/ipv4/ip_forward 2>/dev/null)" != "1" ]; then
     echo "Make sure to run with --sysctl net.ipv4.ip_forward=1"
 fi
 
+# --- Hardening against CVE-2026-98432 (Linux kernel IPv4 TCP use-after-free) ---
+# The container shares the host kernel, so only a host kernel update fixes it.
+# These two measures run inside this container's own network namespace, are
+# best-effort and never stop the start-up.
+#  1. No Multipath TCP for sockets in this namespace (known exploit path).
+if [ -w /proc/sys/net/mptcp/enabled ]; then
+    echo 0 > /proc/sys/net/mptcp/enabled 2>/dev/null && echo "Hardening: MPTCP disabled in container"
+fi
+#  2. Drop inbound IPv4 packets that carry IP options (the trigger). Legitimate
+#     traffic does not use them. Set IP_OPTIONS_FILTER=false to skip.
+if [ "${IP_OPTIONS_FILTER:-true}" != "false" ]; then
+    IPOPT_RULE=(INPUT -m u32 --u32 "0>>24&0x0f=6:15" -j DROP)
+    if iptables -C "${IPOPT_RULE[@]}" 2>/dev/null; then
+        :
+    elif iptables -I "${IPOPT_RULE[@]}" 2>/dev/null; then
+        echo "Hardening: inbound IPv4 packets with IP options are dropped"
+    else
+        echo "Hardening: IP options filter unavailable on this host (xt_u32 missing); relying on a patched host kernel"
+    fi
+fi
+
 # Ensure data directories exist with proper permissions
 mkdir -p /data/wireguard /data/db /data/tailscale
 chmod 700 /data/wireguard

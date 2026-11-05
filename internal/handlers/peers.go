@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/ndo4me/wireguard-server-panel/internal/config"
@@ -23,6 +25,20 @@ func NewPeerHandler(cfg *config.Config, wg *wgmanager.WGManager) *PeerHandler {
 	}
 }
 
+func peerResponse(p *models.Peer) models.PeerResponse {
+	return models.PeerResponse{
+		ID:         p.ID,
+		Name:       p.Name,
+		PublicKey:  p.PublicKey,
+		AssignedIP: p.AssignedIP,
+		Enabled:    p.Enabled,
+		CreatedAt:  p.CreatedAt,
+		ExpiresAt:  p.ExpiresAt,
+		Expired:    p.ExpiresAt != nil && !p.ExpiresAt.After(time.Now()),
+		Note:       p.Note,
+	}
+}
+
 // CreatePeer creates a new WireGuard peer
 func (h *PeerHandler) CreatePeer(c *gin.Context) {
 	var req models.CreatePeerRequest
@@ -31,6 +47,26 @@ func (h *PeerHandler) CreatePeer(c *gin.Context) {
 			Error: "Invalid request body",
 		})
 		return
+	}
+
+	name, err := cleanText(req.Name, "name", maxPeerNameRunes, true)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
+		return
+	}
+	note, err := cleanText(req.Note, "note", maxPeerNoteRunes, false)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
+		return
+	}
+	var expiresAt *time.Time
+	if strings.TrimSpace(req.ExpiresAt) != "" {
+		t, err := parseExpiry(req.ExpiresAt, time.Now())
+		if err != nil {
+			c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
+			return
+		}
+		expiresAt = &t
 	}
 
 	// Generate key pair
@@ -54,7 +90,9 @@ func (h *PeerHandler) CreatePeer(c *gin.Context) {
 
 	// Create peer in database
 	peer := &models.Peer{
-		Name:       req.Name,
+		Name:       name,
+		Note:       note,
+		ExpiresAt:  expiresAt,
 		PublicKey:  publicKey,
 		PrivateKey: privateKey,
 		AssignedIP: assignedIP,
@@ -81,14 +119,7 @@ func (h *PeerHandler) CreatePeer(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, models.PeerResponse{
-		ID:         createdPeer.ID,
-		Name:       createdPeer.Name,
-		PublicKey:  createdPeer.PublicKey,
-		AssignedIP: createdPeer.AssignedIP,
-		Enabled:    createdPeer.Enabled,
-		CreatedAt:  createdPeer.CreatedAt,
-	})
+	c.JSON(http.StatusCreated, peerResponse(createdPeer))
 }
 
 // ListPeers returns all managed peers with real-time stats
@@ -114,14 +145,7 @@ func (h *PeerHandler) ListPeers(c *gin.Context) {
 	// Pre-allocate slice to avoid repeated allocations
 	response := make([]models.PeerResponse, 0, len(peers))
 	for _, peer := range peers {
-		resp := models.PeerResponse{
-			ID:         peer.ID,
-			Name:       peer.Name,
-			PublicKey:  peer.PublicKey,
-			AssignedIP: peer.AssignedIP,
-			Enabled:    peer.Enabled,
-			CreatedAt:  peer.CreatedAt,
-		}
+		resp := peerResponse(&peer)
 
 		// Add real-time stats if available
 		if stats != nil {
@@ -173,10 +197,48 @@ func (h *PeerHandler) UpdatePeer(c *gin.Context) {
 		return
 	}
 
+	upd := db.PeerUpdate{Enabled: req.Enabled}
+	if req.Name != nil {
+		n, err := cleanText(*req.Name, "name", maxPeerNameRunes, true)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
+			return
+		}
+		upd.Name = &n
+	}
+	if req.Note != nil {
+		n, err := cleanText(*req.Note, "note", maxPeerNoteRunes, false)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
+			return
+		}
+		upd.Note = &n
+	}
+	effectiveExpiry := peer.ExpiresAt
+	if req.ExpiresAt != nil {
+		if strings.TrimSpace(*req.ExpiresAt) == "" {
+			upd.ClearExpires = true
+			effectiveExpiry = nil
+		} else {
+			t, err := parseExpiry(*req.ExpiresAt, time.Now())
+			if err != nil {
+				c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
+				return
+			}
+			upd.ExpiresAt = &t
+			effectiveExpiry = &t
+		}
+	}
+
+	// An expired client can only be re-enabled together with a new/cleared expiry.
+	if req.Enabled != nil && *req.Enabled && effectiveExpiry != nil && !effectiveExpiry.After(time.Now()) {
+		c.JSON(http.StatusConflict, models.ErrorResponse{Error: "Client has expired; set a new expiry date or clear it before enabling"})
+		return
+	}
+
 	// Handle enable/disable in WireGuard
 	if req.Enabled != nil {
 		if *req.Enabled && !peer.Enabled {
-			// Enable: add peer back to WireGuard
 			if err := h.wgManager.AddPeer(peer.PublicKey, peer.AssignedIP); err != nil {
 				c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 					Error:   "Failed to enable peer",
@@ -185,7 +247,6 @@ func (h *PeerHandler) UpdatePeer(c *gin.Context) {
 				return
 			}
 		} else if !*req.Enabled && peer.Enabled {
-			// Disable: remove peer from WireGuard
 			if err := h.wgManager.RemovePeer(peer.PublicKey); err != nil {
 				c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 					Error:   "Failed to disable peer",
@@ -196,8 +257,7 @@ func (h *PeerHandler) UpdatePeer(c *gin.Context) {
 		}
 	}
 
-	// Update in database
-	updatedPeer, err := db.DB.UpdatePeer(ip, req.Name, req.Enabled)
+	updatedPeer, err := db.DB.UpdatePeerFields(ip, upd)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error: "Failed to update peer",
@@ -205,14 +265,7 @@ func (h *PeerHandler) UpdatePeer(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, models.PeerResponse{
-		ID:         updatedPeer.ID,
-		Name:       updatedPeer.Name,
-		PublicKey:  updatedPeer.PublicKey,
-		AssignedIP: updatedPeer.AssignedIP,
-		Enabled:    updatedPeer.Enabled,
-		CreatedAt:  updatedPeer.CreatedAt,
-	})
+	c.JSON(http.StatusOK, peerResponse(updatedPeer))
 }
 
 // DeletePeer removes a peer by its assigned IP
@@ -281,9 +334,9 @@ func (h *PeerHandler) GetPeerConfig(c *gin.Context) {
 	}
 
 	// Set headers for file download
-	filename := peer.Name + ".conf"
-	c.Header("Content-Disposition", "attachment; filename="+filename)
-	c.Header("Content-Type", "text/plain")
+	c.Header("Content-Disposition", `attachment; filename="`+configFilename(peer.Name)+`"`)
+	c.Header("Cache-Control", "no-store")
+	c.Header("Content-Type", "text/plain; charset=utf-8")
 	c.String(http.StatusOK, configContent)
 }
 
@@ -322,6 +375,7 @@ func (h *PeerHandler) GetPeerQRCode(c *gin.Context) {
 		return
 	}
 
+	c.Header("Cache-Control", "no-store")
 	c.Header("Content-Type", "image/png")
 	c.Data(http.StatusOK, "image/png", qr)
 }

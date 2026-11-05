@@ -18,6 +18,9 @@ interface Peer {
   transfer_rx: number;
   transfer_tx: number;
   endpoint: string;
+  expires_at?: string;
+  expired: boolean;
+  note: string;
 }
 
 interface ApiError {
@@ -178,10 +181,10 @@ class ApiClient {
     return peers || [];
   }
 
-  async createPeer(name: string): Promise<Peer> {
+  async createPeer(name: string, opts: { note?: string; expires_at?: string } = {}): Promise<Peer> {
     return this.request<Peer>('/peers', {
       method: 'POST',
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, ...opts }),
     });
   }
 
@@ -189,7 +192,7 @@ class ApiClient {
     await this.request(`/peers/${ip}`, { method: 'DELETE' });
   }
 
-  async updatePeer(ip: string, data: { name?: string; enabled?: boolean }): Promise<Peer> {
+  async updatePeer(ip: string, data: { name?: string; enabled?: boolean; note?: string; expires_at?: string }): Promise<Peer> {
     return this.request<Peer>(`/peers/${ip}`, {
       method: 'PATCH',
       body: JSON.stringify(data),

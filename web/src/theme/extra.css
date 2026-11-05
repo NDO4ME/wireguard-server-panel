@@ -74,3 +74,7 @@ dialog.modal.modal-wide { width: min(640px, calc(100vw - 32px)); }
 .auth-card .btn-primary { background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 88%, white), var(--primary)); border-color: color-mix(in srgb, var(--primary) 85%, black); }
 .auth-card .btn-primary:hover { background: linear-gradient(180deg, color-mix(in srgb, var(--primary-hover) 88%, white), var(--primary-hover)); border-color: var(--primary); }
 .auth-card .btn-primary:active { background: var(--primary-press); }
+
+/* client note / expiry hints */
+.note-line { margin: 2px 0 0 18px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-3); font-size: 12px; }
+td .badge + .note-line { margin-left: 0; }

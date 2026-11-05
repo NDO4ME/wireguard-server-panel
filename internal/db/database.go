@@ -109,6 +109,11 @@ func (d *Database) migrate() error {
 	// This must run before creating the index on api_token
 	_, _ = d.conn.Exec("ALTER TABLE users ADD COLUMN api_token TEXT DEFAULT ''")
 
+	// Per-client expiry and note (additive, safe for existing databases)
+	_, _ = d.conn.Exec("ALTER TABLE peers ADD COLUMN expires_at DATETIME")
+	_, _ = d.conn.Exec("ALTER TABLE peers ADD COLUMN note TEXT NOT NULL DEFAULT ''")
+	_, _ = d.conn.Exec("CREATE INDEX IF NOT EXISTS idx_peers_expires_at ON peers(expires_at)")
+
 	// Create index on api_token after the column exists
 	_, _ = d.conn.Exec("CREATE INDEX IF NOT EXISTS idx_users_api_token ON users(api_token)")
 
@@ -218,10 +223,31 @@ func (d *Database) UpdateUserPassword(userID int64, passwordHash string) error {
 }
 
 // Peer operations
+const peerColumns = "id, name, public_key, private_key, assigned_ip, enabled, created_at, updated_at, expires_at, note"
+
+type rowScanner interface{ Scan(dest ...any) error }
+
+func scanPeer(r rowScanner) (*models.Peer, error) {
+	var p models.Peer
+	var exp sql.NullTime
+	if err := r.Scan(&p.ID, &p.Name, &p.PublicKey, &p.PrivateKey, &p.AssignedIP, &p.Enabled, &p.CreatedAt, &p.UpdatedAt, &exp, &p.Note); err != nil {
+		return nil, err
+	}
+	if exp.Valid {
+		t := exp.Time.UTC()
+		p.ExpiresAt = &t
+	}
+	return &p, nil
+}
+
 func (d *Database) CreatePeer(peer *models.Peer) (*models.Peer, error) {
+	var exp any
+	if peer.ExpiresAt != nil {
+		exp = peer.ExpiresAt.UTC()
+	}
 	result, err := d.conn.Exec(
-		"INSERT INTO peers (name, public_key, private_key, assigned_ip, enabled) VALUES (?, ?, ?, ?, ?)",
-		peer.Name, peer.PublicKey, peer.PrivateKey, peer.AssignedIP, peer.Enabled,
+		"INSERT INTO peers (name, public_key, private_key, assigned_ip, enabled, expires_at, note) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		peer.Name, peer.PublicKey, peer.PrivateKey, peer.AssignedIP, peer.Enabled, exp, peer.Note,
 	)
 	if err != nil {
 		return nil, err
@@ -236,49 +262,88 @@ func (d *Database) CreatePeer(peer *models.Peer) (*models.Peer, error) {
 }
 
 func (d *Database) GetPeerByID(id int64) (*models.Peer, error) {
-	var peer models.Peer
-	err := d.conn.QueryRow(
-		"SELECT id, name, public_key, private_key, assigned_ip, enabled, created_at, updated_at FROM peers WHERE id = ?",
-		id,
-	).Scan(&peer.ID, &peer.Name, &peer.PublicKey, &peer.PrivateKey, &peer.AssignedIP, &peer.Enabled, &peer.CreatedAt, &peer.UpdatedAt)
-	if err != nil {
-		return nil, err
-	}
-	return &peer, nil
+	return scanPeer(d.conn.QueryRow("SELECT "+peerColumns+" FROM peers WHERE id = ?", id))
 }
 
 func (d *Database) GetPeerByIP(ip string) (*models.Peer, error) {
-	var peer models.Peer
-	err := d.conn.QueryRow(
-		"SELECT id, name, public_key, private_key, assigned_ip, enabled, created_at, updated_at FROM peers WHERE assigned_ip = ?",
-		ip,
-	).Scan(&peer.ID, &peer.Name, &peer.PublicKey, &peer.PrivateKey, &peer.AssignedIP, &peer.Enabled, &peer.CreatedAt, &peer.UpdatedAt)
+	return scanPeer(d.conn.QueryRow("SELECT "+peerColumns+" FROM peers WHERE assigned_ip = ?", ip))
+}
+
+// PeerUpdate holds optional changes; nil fields are left untouched.
+type PeerUpdate struct {
+	Name         *string
+	Enabled      *bool
+	Note         *string
+	ExpiresAt    *time.Time // set
+	ClearExpires bool       // clear
+}
+
+// UpdatePeerFields applies all changes in one transaction.
+func (d *Database) UpdatePeerFields(ip string, u PeerUpdate) (*models.Peer, error) {
+	tx, err := d.conn.Begin()
 	if err != nil {
 		return nil, err
 	}
-	return &peer, nil
-}
-
-func (d *Database) UpdatePeer(ip string, name *string, enabled *bool) (*models.Peer, error) {
-	if name != nil {
-		_, err := d.conn.Exec("UPDATE peers SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE assigned_ip = ?", *name, ip)
-		if err != nil {
+	defer tx.Rollback()
+	exec := func(q string, args ...any) error {
+		_, e := tx.Exec(q+", updated_at = CURRENT_TIMESTAMP WHERE assigned_ip = ?", append(args, ip)...)
+		return e
+	}
+	if u.Name != nil {
+		if err := exec("UPDATE peers SET name = ?", *u.Name); err != nil {
 			return nil, err
 		}
 	}
-	if enabled != nil {
-		_, err := d.conn.Exec("UPDATE peers SET enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE assigned_ip = ?", *enabled, ip)
-		if err != nil {
+	if u.Enabled != nil {
+		if err := exec("UPDATE peers SET enabled = ?", *u.Enabled); err != nil {
 			return nil, err
 		}
+	}
+	if u.Note != nil {
+		if err := exec("UPDATE peers SET note = ?", *u.Note); err != nil {
+			return nil, err
+		}
+	}
+	if u.ClearExpires {
+		if err := exec("UPDATE peers SET expires_at = NULL"); err != nil {
+			return nil, err
+		}
+	} else if u.ExpiresAt != nil {
+		if err := exec("UPDATE peers SET expires_at = ?", u.ExpiresAt.UTC()); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
 	}
 	return d.GetPeerByIP(ip)
 }
 
+// UpdatePeer is kept for compatibility with existing callers.
+func (d *Database) UpdatePeer(ip string, name *string, enabled *bool) (*models.Peer, error) {
+	return d.UpdatePeerFields(ip, PeerUpdate{Name: name, Enabled: enabled})
+}
+
+// GetExpiredEnabledPeers returns enabled peers whose expiry has passed.
+func (d *Database) GetExpiredEnabledPeers(now time.Time) ([]models.Peer, error) {
+	rows, err := d.conn.Query("SELECT "+peerColumns+" FROM peers WHERE enabled = 1 AND expires_at IS NOT NULL AND expires_at <= ?", now.UTC())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.Peer
+	for rows.Next() {
+		p, err := scanPeer(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *p)
+	}
+	return out, rows.Err()
+}
+
 func (d *Database) GetAllPeers() ([]models.Peer, error) {
-	rows, err := d.conn.Query(
-		"SELECT id, name, public_key, private_key, assigned_ip, enabled, created_at, updated_at FROM peers ORDER BY created_at DESC",
-	)
+	rows, err := d.conn.Query("SELECT " + peerColumns + " FROM peers ORDER BY created_at DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -286,11 +351,11 @@ func (d *Database) GetAllPeers() ([]models.Peer, error) {
 
 	var peers []models.Peer
 	for rows.Next() {
-		var peer models.Peer
-		if err := rows.Scan(&peer.ID, &peer.Name, &peer.PublicKey, &peer.PrivateKey, &peer.AssignedIP, &peer.Enabled, &peer.CreatedAt, &peer.UpdatedAt); err != nil {
+		p, err := scanPeer(rows)
+		if err != nil {
 			return nil, err
 		}
-		peers = append(peers, peer)
+		peers = append(peers, *p)
 	}
 
 	return peers, rows.Err()

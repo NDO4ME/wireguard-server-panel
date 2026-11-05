@@ -54,6 +54,7 @@ type PeerStats struct {
 // WGManager handles WireGuard operations
 type WGManager struct {
 	config *config.WireGuardConfig
+	mu     sync.Mutex // serialises "wg set" + "wg-quick save" so concurrent changes never interleave
 }
 
 // New creates a new WGManager instance
@@ -121,6 +122,9 @@ func (wg *WGManager) AddPeer(publicKey, assignedIP string) error {
 		return fmt.Errorf("invalid IP address format")
 	}
 
+	wg.mu.Lock()
+	defer wg.mu.Unlock()
+
 	// Add peer to WireGuard interface
 	// SECURITY: Arguments are passed separately, not concatenated into a shell command
 	cmd := exec.Command("wg", "set", wg.config.Interface,
@@ -149,6 +153,9 @@ func (wg *WGManager) RemovePeer(publicKey string) error {
 	if !ValidatePublicKey(publicKey) {
 		return fmt.Errorf("invalid public key format")
 	}
+
+	wg.mu.Lock()
+	defer wg.mu.Unlock()
 
 	// Remove peer from WireGuard interface
 	cmd := exec.Command("wg", "set", wg.config.Interface,

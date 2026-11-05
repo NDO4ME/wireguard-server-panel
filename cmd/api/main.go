@@ -204,6 +204,9 @@ func main() {
 	// iptables rules do not survive a container restart: re-apply when enabled
 	go restoreTailscaleRouting(cfg, tsManager, 3*time.Minute)
 
+	// Disable clients whose expiry date has passed
+	go handlers.RunExpiryEnforcer(ctx, wgManager)
+
 	// Start periodic maintenance (every hour)
 	go func() {
 		ticker := time.NewTicker(time.Hour)

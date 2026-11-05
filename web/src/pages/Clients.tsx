@@ -7,6 +7,9 @@ import { formatBytes, timeAgo } from '../components/format'
 
 const LOGS_PER_PAGE = 10
 
+// Earliest selectable expiry (tomorrow, UTC), YYYY-MM-DD
+const tomorrow = () => new Date(Date.now() + 86400000).toISOString().slice(0, 10)
+
 export default function Clients({ onLogout }: { onLogout: () => void }) {
   const [peers, setPeers] = useState<Peer[]>([])
   const [loading, setLoading] = useState(true)
@@ -15,10 +18,15 @@ export default function Clients({ onLogout }: { onLogout: () => void }) {
 
   const [showAdd, setShowAdd] = useState(false)
   const [newName, setNewName] = useState('')
+  const [newNote, setNewNote] = useState('')
+  const [newExpiry, setNewExpiry] = useState('')
   const [adding, setAdding] = useState(false)
 
-  const [editing, setEditing] = useState<string | null>(null)
+  const [editPeer, setEditPeer] = useState<Peer | null>(null)
   const [editName, setEditName] = useState('')
+  const [editNote, setEditNote] = useState('')
+  const [editExpiry, setEditExpiry] = useState('')
+  const [saving, setSaving] = useState(false)
 
   const [qr, setQr] = useState<{ ip: string; name: string; url: string } | null>(null)
   const [logsFor, setLogsFor] = useState<Peer | null>(null)
@@ -51,8 +59,10 @@ export default function Clients({ onLogout }: { onLogout: () => void }) {
     if (!newName.trim()) return
     setAdding(true)
     try {
-      await api.createPeer(newName.trim())
+      await api.createPeer(newName.trim(), { note: newNote.trim(), expires_at: newExpiry || undefined })
       setNewName('')
+      setNewNote('')
+      setNewExpiry('')
       setShowAdd(false)
       await fetchPeers()
     } catch (err) {
@@ -66,19 +76,36 @@ export default function Clients({ onLogout }: { onLogout: () => void }) {
     try {
       await api.updatePeer(peer.assigned_ip, { enabled: !peer.enabled })
       await fetchPeers()
-    } catch {
-      setError('Failed to change client state')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to change client state')
     }
   }
 
-  const handleRename = async (ip: string) => {
-    if (!editName.trim()) return
+  const openEdit = (peer: Peer) => {
+    setEditPeer(peer)
+    setEditName(peer.name)
+    setEditNote(peer.note || '')
+    setEditExpiry(peer.expires_at ? peer.expires_at.slice(0, 10) : '')
+  }
+
+  const handleEditSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editPeer || !editName.trim()) return
+    setSaving(true)
     try {
-      await api.updatePeer(ip, { name: editName.trim() })
-      setEditing(null)
+      const data: { name?: string; note?: string; expires_at?: string } = {}
+      if (editName.trim() !== editPeer.name) data.name = editName.trim()
+      if (editNote.trim() !== (editPeer.note || '')) data.note = editNote.trim()
+      const oldExpiry = editPeer.expires_at ? editPeer.expires_at.slice(0, 10) : ''
+      if (editExpiry !== oldExpiry) data.expires_at = editExpiry
+      if (Object.keys(data).length > 0) await api.updatePeer(editPeer.assigned_ip, data)
+      setEditPeer(null)
       await fetchPeers()
-    } catch {
-      setError('Failed to rename client')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update client')
+      setEditPeer(null)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -206,37 +233,20 @@ export default function Clients({ onLogout }: { onLogout: () => void }) {
                 {peers.map(peer => (
                   <tr key={peer.id} className={peer.enabled ? undefined : 'row-off'}>
                     <td>
-                      {editing === peer.assigned_ip ? (
-                        <div className="inline-edit">
-                          <input
-                            type="text"
-                            value={editName}
-                            onChange={e => setEditName(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') handleRename(peer.assigned_ip)
-                              if (e.key === 'Escape') setEditing(null)
-                            }}
-                            aria-label="Client name"
-                            autoFocus
-                          />
-                          <button type="button" className="btn btn-icon btn-sm" aria-label="Save name" onClick={() => handleRename(peer.assigned_ip)}><Icon name="check" /></button>
-                          <button type="button" className="btn btn-icon btn-sm btn-ghost" aria-label="Cancel" onClick={() => setEditing(null)}><Icon name="x" /></button>
-                        </div>
-                      ) : (
-                        <div className="name-cell">
-                          <i className={peer.is_online ? 'dot ok' : 'dot'} title={peer.is_online ? 'Online' : 'Offline'} />
-                          <strong>{peer.name}</strong>
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-icon btn-sm"
-                            aria-label={`Rename ${peer.name}`}
-                            title="Rename"
-                            onClick={() => { setEditing(peer.assigned_ip); setEditName(peer.name) }}
-                          >
-                            <Icon name="edit" />
-                          </button>
-                        </div>
-                      )}
+                      <div className="name-cell">
+                        <i className={peer.is_online ? 'dot ok' : 'dot'} title={peer.is_online ? 'Online' : 'Offline'} />
+                        <strong>{peer.name}</strong>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-icon btn-sm"
+                          aria-label={`Edit ${peer.name}`}
+                          title="Edit"
+                          onClick={() => openEdit(peer)}
+                        >
+                          <Icon name="edit" />
+                        </button>
+                      </div>
+                      {peer.note && <div className="note-line" title={peer.note}>{peer.note}</div>}
                     </td>
                     <td className="mono">{peer.assigned_ip}</td>
                     <td>
@@ -245,12 +255,17 @@ export default function Clients({ onLogout }: { onLogout: () => void }) {
                     <td className="num"><Icon name="arrow-down" className="ic-inline" /> {formatBytes(peer.transfer_rx)}</td>
                     <td className="num"><Icon name="arrow-up" className="ic-inline" /> {formatBytes(peer.transfer_tx)}</td>
                     <td>
-                      {!peer.enabled ? (
+                      {peer.expired ? (
+                        <span className="badge failed" title={peer.expires_at}>expired</span>
+                      ) : !peer.enabled ? (
                         <span className="badge inactive">disabled</span>
                       ) : peer.is_online ? (
                         <span className="badge success">online</span>
                       ) : (
                         <span className="badge">offline</span>
+                      )}
+                      {peer.expires_at && !peer.expired && (
+                        <div className="note-line" title={peer.expires_at}>expires {peer.expires_at.slice(0, 10)}</div>
                       )}
                     </td>
                     <td className="actions-cell">
@@ -282,6 +297,36 @@ export default function Clients({ onLogout }: { onLogout: () => void }) {
         )}
       </section>
 
+      {editPeer && (
+        <Modal
+          title="Edit client"
+          icon="edit"
+          onClose={() => setEditPeer(null)}
+          footer={
+            <>
+              <button type="button" className="btn" onClick={() => setEditPeer(null)}>Cancel</button>
+              <button type="submit" form="edit-client" className={saving ? 'btn btn-primary is-busy' : 'btn btn-primary'} disabled={saving || !editName.trim()}>Save changes</button>
+            </>
+          }
+        >
+          <form id="edit-client" onSubmit={handleEditSave}>
+            <label className="field">
+              <span className="lbl">Name</span>
+              <input type="text" value={editName} onChange={e => setEditName(e.target.value)} maxLength={64} required autoFocus />
+            </label>
+            <label className="field">
+              <span className="lbl">Note <span className="opt">optional</span></span>
+              <input type="text" value={editNote} onChange={e => setEditNote(e.target.value)} maxLength={200} />
+            </label>
+            <label className="field">
+              <span className="lbl">Expires <span className="opt">optional</span></span>
+              <input type="date" value={editExpiry} min={tomorrow()} onChange={e => setEditExpiry(e.target.value)} />
+              <span className="hint">Clear the date to keep the client active indefinitely. An expired client is re-enabled after setting a new date.</span>
+            </label>
+          </form>
+        </Modal>
+      )}
+
       {showAdd && (
         <Modal
           title="New client"
@@ -299,6 +344,15 @@ export default function Clients({ onLogout }: { onLogout: () => void }) {
               <span className="lbl">Name</span>
               <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Phone" maxLength={64} required autoFocus />
               <span className="hint">The next free address in the VPN subnet is assigned automatically.</span>
+            </label>
+            <label className="field">
+              <span className="lbl">Note <span className="opt">optional</span></span>
+              <input type="text" value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="e.g. Alice's laptop" maxLength={200} />
+            </label>
+            <label className="field">
+              <span className="lbl">Expires <span className="opt">optional</span></span>
+              <input type="date" value={newExpiry} min={tomorrow()} onChange={e => setNewExpiry(e.target.value)} />
+              <span className="hint">The client is disabled automatically at the end of that day (UTC).</span>
             </label>
           </form>
         </Modal>

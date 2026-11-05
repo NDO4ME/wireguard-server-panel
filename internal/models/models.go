@@ -20,6 +20,9 @@ type Peer struct {
 	Enabled    bool      `json:"enabled"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
+	// ExpiresAt disables the peer automatically once reached (nil = never).
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	Note      string     `json:"note"`
 }
 
 type RefreshToken struct {
@@ -44,15 +47,21 @@ type LoginResponse struct {
 
 type CreatePeerRequest struct {
 	Name string `json:"name" binding:"required"`
+	Note string `json:"note,omitempty"`
+	// ExpiresAt is optional: RFC 3339 timestamp or YYYY-MM-DD (end of that day, UTC).
+	ExpiresAt string `json:"expires_at,omitempty"`
 }
 
 type PeerResponse struct {
-	ID         int64     `json:"id"`
-	Name       string    `json:"name"`
-	PublicKey  string    `json:"public_key"`
-	AssignedIP string    `json:"assigned_ip"`
-	Enabled    bool      `json:"enabled"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID         int64      `json:"id"`
+	Name       string     `json:"name"`
+	PublicKey  string     `json:"public_key"`
+	AssignedIP string     `json:"assigned_ip"`
+	Enabled    bool       `json:"enabled"`
+	CreatedAt  time.Time  `json:"created_at"`
+	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
+	Expired    bool       `json:"expired"`
+	Note       string     `json:"note"`
 	// Real-time stats
 	IsOnline        bool      `json:"is_online"`
 	LatestHandshake time.Time `json:"latest_handshake,omitempty"`
@@ -64,6 +73,9 @@ type PeerResponse struct {
 type UpdatePeerRequest struct {
 	Name    *string `json:"name,omitempty"`
 	Enabled *bool   `json:"enabled,omitempty"`
+	Note    *string `json:"note,omitempty"`
+	// ExpiresAt: RFC 3339 or YYYY-MM-DD to set, empty string to clear.
+	ExpiresAt *string `json:"expires_at,omitempty"`
 }
 
 type ErrorResponse struct {

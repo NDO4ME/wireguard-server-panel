@@ -2,6 +2,7 @@ package wgupdate
 
 import (
 	"os"
+	"os/exec"
 	"testing"
 )
 
@@ -46,5 +47,21 @@ func TestExclusiveDefault(t *testing.T) {
 	New(nil, "wg0", nil).exclusive(func() { ran = true })
 	if !ran {
 		t.Fatal("exclusive fallback must run fn")
+	}
+}
+
+func TestSnapshotRoundTrip(t *testing.T) {
+	if _, err := exec.LookPath("dpkg"); err != nil {
+		t.Skip("dpkg not available")
+	}
+	if installedPackage() == "" {
+		t.Skip("wireguard-tools not installed")
+	}
+	a, err := snapshotFiles(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fi, err := os.Stat(a); err != nil || fi.Size() == 0 {
+		t.Fatalf("empty snapshot: %v", err)
 	}
 }

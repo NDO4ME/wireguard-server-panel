@@ -15,6 +15,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -166,6 +167,45 @@ func aptInstall(ctx context.Context, version string, downgrade bool) error {
 	cmd.Env = aptEnv()
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("apt-get install %s=%s failed: %s", pkgName, version, lastLines(string(out), 4))
+	}
+	return nil
+}
+
+// snapshotFiles archives the regular files of the installed package. The
+// Ubuntu archive drops superseded versions from its index, so an apt based
+// rollback can be impossible; the archive is the fallback that always works.
+func snapshotFiles(dir string) (string, error) {
+	out, err := exec.Command("dpkg", "-L", pkgName).Output()
+	if err != nil {
+		return "", fmt.Errorf("dpkg -L failed: %w", err)
+	}
+	var rel []string
+	for _, f := range strings.Split(string(out), "\n") {
+		f = strings.TrimSpace(f)
+		if !strings.HasPrefix(f, "/") || f == "/" {
+			continue
+		}
+		if fi, err := os.Lstat(f); err == nil && !fi.IsDir() {
+			rel = append(rel, strings.TrimPrefix(f, "/"))
+		}
+	}
+	if len(rel) == 0 {
+		return "", errors.New("no package files found")
+	}
+	list := filepath.Join(dir, "files.txt")
+	if err := os.WriteFile(list, []byte(strings.Join(rel, "\n")+"\n"), 0o600); err != nil {
+		return "", err
+	}
+	archive := filepath.Join(dir, "snapshot.tar")
+	if b, err := exec.Command("tar", "-cf", archive, "-C", "/", "--files-from", list).CombinedOutput(); err != nil {
+		return "", fmt.Errorf("tar failed: %s", lastLines(string(b), 2))
+	}
+	return archive, nil
+}
+
+func restoreSnapshot(archive string) error {
+	if b, err := exec.Command("tar", "-xpf", archive, "-C", "/").CombinedOutput(); err != nil {
+		return fmt.Errorf("tar restore failed: %s", lastLines(string(b), 2))
 	}
 	return nil
 }
@@ -341,6 +381,15 @@ func (u *Updater) Apply(ctx context.Context, auto bool) (*Result, error) {
 	res.To = cand
 
 	var applyErr error
+	snapDir, derr := os.MkdirTemp("", "wgupdate-")
+	snapshot := ""
+	if derr == nil {
+		defer os.RemoveAll(snapDir)
+		var serr error
+		if snapshot, serr = snapshotFiles(snapDir); serr != nil {
+			log.Printf("wireguard: no file snapshot for rollback: %v", serr)
+		}
+	}
 	u.exclusive(func() {
 		peersBefore := u.peerCount()
 		if applyErr = aptInstall(ctx, cand, false); applyErr == nil {
@@ -355,11 +404,18 @@ func (u *Updater) Apply(ctx context.Context, auto bool) (*Result, error) {
 		if applyErr != nil {
 			res.Message = "update failed: " + applyErr.Error()
 			if prev != "" {
-				if rerr := aptInstall(ctx, prev, true); rerr != nil {
-					res.Message += "; rollback failed: " + rerr.Error()
-				} else {
+				if rerr := aptInstall(ctx, prev, true); rerr == nil {
 					res.RolledBack = true
 					res.Message += "; previous version restored"
+				} else if snapshot != "" {
+					if serr := restoreSnapshot(snapshot); serr == nil && ToolsVersion() != "" {
+						res.RolledBack = true
+						res.Message += "; previous files restored from snapshot"
+					} else {
+						res.Message += "; rollback failed: " + rerr.Error()
+					}
+				} else {
+					res.Message += "; rollback failed: " + rerr.Error()
 				}
 			}
 		}

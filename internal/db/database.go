@@ -477,6 +477,21 @@ func (d *Database) CleanExpiredTokens() error {
 	return err
 }
 
+// PruneConnectionLogs bounds the connection history: at most keepPerPeer
+// entries per client and nothing older than maxAgeDays.
+func (d *Database) PruneConnectionLogs(keepPerPeer, maxAgeDays int) error {
+	_, err := d.conn.Exec(`
+		DELETE FROM connection_logs
+		WHERE connected_at < datetime('now', '-' || ? || ' days')
+		   OR id IN (
+			SELECT id FROM (
+				SELECT id, ROW_NUMBER() OVER (PARTITION BY peer_id ORDER BY connected_at DESC, id DESC) AS rn
+				FROM connection_logs
+			) WHERE rn > ?
+		)`, maxAgeDays, keepPerPeer)
+	return err
+}
+
 // Optimize performs database maintenance to reclaim space and optimize performance
 func (d *Database) Optimize() error {
 	// Run incremental vacuum to reclaim free pages (non-blocking)

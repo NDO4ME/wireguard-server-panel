@@ -66,6 +66,7 @@ docker run -d \
   --sysctl net.ipv4.conf.all.src_valid_mark=1 \
   --device /dev/net/tun:/dev/net/tun \
   --stop-timeout 40 \
+  --log-opt max-size=10m --log-opt max-file=3 \
   -p 127.0.0.1:1881:1881/tcp \
   -p 1881:51820/udp \
   -v wireguard-data:/data \
@@ -253,6 +254,7 @@ docker run -d \
   --sysctl net.ipv4.conf.all.src_valid_mark=1 \
   --device /dev/net/tun:/dev/net/tun \
   --stop-timeout 40 \
+  --log-opt max-size=10m --log-opt max-file=3 \
   -p 127.0.0.1:1881:1881/tcp \
   -p 1881:51820/udp \
   -v wireguard-data:/data \
@@ -380,6 +382,16 @@ docker start wireguardpanel   # new admin is created from ADMIN_PASSWORD
 - Login is rate limited per client IP (`X-Forwarded-For` is trusted from local proxies only); passwords are stored as bcrypt hashes.
 - **CVE-2026-98432 (Linux kernel IPv4 TCP use-after-free):** a container shares the host kernel, so the real fix is a patched **host** kernel (`apt update && apt full-upgrade`, then reboot, as soon as your distribution ships it). Inside the image the panel adds defence in depth: Multipath TCP is disabled for the panel listener (`GODEBUG=multipathtcp=0`) and in the container's network namespace, and inbound IPv4 packets carrying IP options (the exploit trigger) are dropped by an `iptables` rule. The rule needs the `xt_u32` kernel module; if the host lacks it the container starts normally and logs a notice. Set `IP_OPTIONS_FILTER=false` to skip the rule.
 - Client private keys are stored in the SQLite database **unencrypted** – protect the `/data` volume and backups accordingly.
+
+## Resource usage
+
+The panel is built to stay small and stable over months of uptime:
+
+- **Logs:** no per-request logging; Docker log files are rotated (`max-size 10m`, 3 files; add the `--log-opt` flags shown above to `docker run` installs).
+- **Database:** SQLite in WAL mode with incremental vacuum and an hourly maintenance run. Expired sessions are removed, the activity log keeps the last 1000 entries, and the connection history keeps at most 200 entries and 180 days per client.
+- **Updaters:** apt package lists and cached `.deb` files are deleted after every update check or update, so the container layer does not grow. WireGuard and Tailscale updates never run at the same time.
+- **Memory:** `GOMEMLIMIT=512MiB`, a single database connection and an hourly garbage collection that returns memory to the OS.
+- **CPU:** background work is limited to a one-minute expiry check, a 6-hour update check per component and the web UI pauses its refresh while the browser tab is hidden.
 
 ## Architecture
 

@@ -50,7 +50,7 @@ export default function Clients({ onLogout }: { onLogout: () => void }) {
   useEffect(() => {
     fetchPeers()
     api.getSettings().then(s => setLoggingEnabled(s.logging_enabled)).catch(() => {})
-    const interval = setInterval(fetchPeers, 5000)
+    const interval = setInterval(() => { if (!document.hidden) fetchPeers() }, 5000)
     return () => clearInterval(interval)
   }, [fetchPeers])
 

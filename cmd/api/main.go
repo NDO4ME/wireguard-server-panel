@@ -248,26 +248,21 @@ func main() {
 				// Clean expired tokens
 				if err := db.DB.CleanExpiredTokens(); err != nil {
 					log.Printf("Warning: Failed to clean expired tokens: %v", err)
-				} else {
-					log.Println("Cleaned expired refresh tokens")
+				}
+				// Bound the connection history (200 entries per client, 180 days)
+				if err := db.DB.PruneConnectionLogs(200, 180); err != nil {
+					log.Printf("Warning: Failed to prune connection logs: %v", err)
 				}
 
 				// Optimize database (incremental vacuum + optimize)
 				if err := db.DB.Optimize(); err != nil {
 					log.Printf("Warning: Failed to optimize database: %v", err)
-				} else {
-					log.Println("Database optimized")
 				}
 
 				// Force garbage collection and return memory to OS
 				runtime.GC()
 				debug.FreeOSMemory()
 
-				// Log memory stats
-				var m runtime.MemStats
-				runtime.ReadMemStats(&m)
-				log.Printf("Memory: Alloc=%vMB, Sys=%vMB, NumGC=%v",
-					m.Alloc/1024/1024, m.Sys/1024/1024, m.NumGC)
 			}
 		}
 	}()

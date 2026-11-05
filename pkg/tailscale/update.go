@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ndo4me/wireguard-server-panel/pkg/aptutil"
 )
 
 // Settings keys used by the updater (stored through Store).
@@ -356,10 +358,14 @@ func (m *Manager) beginBusy(updating bool) bool {
 	m.updater.busy = true
 	m.updater.checking = !updating
 	m.updater.updating = updating
+	m.updater.mu.Unlock()
+	aptutil.Acquire() // serialise apt use with the WireGuard updater
+	m.updater.mu.Lock()
 	return true
 }
 
 func (m *Manager) endBusy() {
+	aptutil.Release() // frees apt lists and cached packages
 	m.updater.mu.Lock()
 	m.updater.busy = false
 	m.updater.checking = false

@@ -21,6 +21,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ndo4me/wireguard-server-panel/pkg/aptutil"
 )
 
 const (
@@ -309,10 +311,14 @@ func (u *Updater) begin(updating bool) bool {
 		return false
 	}
 	u.busy, u.checking, u.updating = true, !updating, updating
+	u.mu.Unlock()
+	aptutil.Acquire() // serialise apt use with the Tailscale updater
+	u.mu.Lock()
 	return true
 }
 
 func (u *Updater) end() {
+	aptutil.Release() // frees apt lists and cached packages
 	u.mu.Lock()
 	u.busy, u.checking, u.updating = false, false, false
 	u.mu.Unlock()

@@ -36,7 +36,7 @@ export default function SystemPage({ onLogout }: { onLogout: () => void }) {
 
   useEffect(() => {
     fetchAll()
-    const t = window.setInterval(fetchAll, 15000)
+    const t = window.setInterval(() => { if (!document.hidden) fetchAll() }, 15000)
     return () => window.clearInterval(t)
   }, [fetchAll])
 

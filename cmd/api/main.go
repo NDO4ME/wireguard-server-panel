@@ -150,6 +150,8 @@ func main() {
 			{
 				settings.GET("", settingsHandler.GetSettings)
 				settings.PUT("", settingsHandler.UpdateSettings)
+				settings.POST("/api-token/rotate", settingsHandler.RotateAPIToken)
+				settings.GET("/backup", settingsHandler.DownloadBackup)
 			}
 
 			// System overview and WireGuard tools updates
@@ -170,6 +172,8 @@ func main() {
 				tsGroup.POST("/disconnect", tailscaleHandler.Disconnect)
 				tsGroup.POST("/routing/enable", tailscaleHandler.EnableRouting)
 				tsGroup.POST("/routing/disable", tailscaleHandler.DisableRouting)
+				tsGroup.GET("/prefs", tailscaleHandler.GetPrefs)
+				tsGroup.PUT("/prefs", tailscaleHandler.SetPrefs)
 				tsGroup.GET("/routes", tailscaleHandler.GetRoutes)
 				tsGroup.GET("/update/status", tailscaleHandler.GetUpdateStatus)
 				tsGroup.POST("/update/check", tailscaleHandler.CheckUpdate)

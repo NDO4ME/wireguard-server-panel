@@ -184,6 +184,12 @@ func (d *Database) GetUserByAPIToken(token string) (*models.User, error) {
 }
 
 // UpdateUserAPIToken updates the user's API token
+// Backup writes a consistent snapshot of the database to dest (which must not exist).
+func (d *Database) Backup(dest string) error {
+	_, err := d.conn.Exec("VACUUM INTO ?", dest)
+	return err
+}
+
 func (d *Database) UpdateUserAPIToken(userID int64, apiToken string) error {
 	_, err := d.conn.Exec(
 		"UPDATE users SET api_token = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",

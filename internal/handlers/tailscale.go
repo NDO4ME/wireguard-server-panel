@@ -237,3 +237,34 @@ func (h *TailscaleHandler) GetRoutes(c *gin.Context) {
 		"peers":  status.Peers,
 	})
 }
+
+// GetPrefs returns the runtime Tailscale preferences (exit node, routes, shields-up).
+func (h *TailscaleHandler) GetPrefs(c *gin.Context) {
+	p, err := h.manager.GetPrefs()
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, models.ErrorResponse{Error: err.Error()})
+		return
+	}
+	c.Header("Cache-Control", "no-store")
+	c.JSON(http.StatusOK, p)
+}
+
+// SetPrefs applies the preferences to the running daemon without reconnecting.
+func (h *TailscaleHandler) SetPrefs(c *gin.Context) {
+	var req tailscale.Prefs
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "Invalid request"})
+		return
+	}
+	st, err := h.manager.GetStatus()
+	if err != nil || !st.Connected {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "Tailscale must be connected to change these options"})
+		return
+	}
+	p, err := h.manager.SetPrefs(req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, p)
+}

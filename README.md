@@ -10,11 +10,15 @@ A self-hosted WireGuard VPN management panel with built-in Tailscale integration
 
 - **Client management** – create, rename, enable/disable and delete clients
 - **QR codes & config download** – onboard mobile and desktop clients in seconds; optionally with a hostname as endpoint instead of the IP
+- **Client expiry & notes** – optional expiry date per client; expired clients are disabled automatically and cannot be re-enabled until the date is changed
 - **Live statistics** – online state, last handshake, transfer counters, endpoint
 - **Connection logging** – optional endpoint history per client
 - **White-label login page** – only a password field and a button; optional logo, heading, tab title and accent colour from Settings
-- **REST API** – permanent API token for automation
+- **REST API** – random API token for automation, rotatable from the UI
+- **System page** – interface health, client counts, versions and WireGuard tools updates
+- **Database backup** – one-click consistent snapshot download (Settings → Backup)
 - **Tailscale integration** – route WireGuard clients into your tailnet
+- **Tailscale node options** – exit node, subnet routes, accept routes and shields-up, applied live with `tailscale set`
 - **Tailscale auto-update** – checks the official stable channel, updates in place, verifies and rolls back on failure
 - **Automatic container images** – built and published by GitHub Actions
 
@@ -151,6 +155,10 @@ The image ships Tailscale from the official stable apt repository. `tailscaled` 
 
 Tailscale runs with **MagicDNS / DNS management disabled** (`--accept-dns=false`). `tailscaled` never rewrites the server's `/etc/resolv.conf`, so the host's own name resolution is unaffected. The setting is enforced every time `tailscaled` starts, also for nodes created by older releases. Tailnet peers are reached by their `100.x.y.z` address.
 
+### Node options
+
+**Tailscale → Node options** applies settings to the running daemon without a reconnect: accept routes, advertise as exit node, advertise subnet routes (CIDR, one per line) and shields-up. Routes and exit nodes still need approval in the Tailscale admin console. Default routes (`0.0.0.0/0`, `::/0`) are rejected in the route list; use the exit node switch.
+
 ### Automatic updates
 
 **Tailscale → Version & updates** shows the installed and the latest stable version.
@@ -281,6 +289,13 @@ docker exec wireguardpanel apt-get install -y --only-upgrade tailscale
 docker restart wireguardpanel
 ```
 
+## WireGuard tools updates
+
+**System → WireGuard tools updates** works like the Tailscale updater and is enabled by default (`WIREGUARD_AUTO_UPDATE=true`; the switch in the UI overrides it).
+
+- Only the userspace tools (`wireguard-tools`) are updated. The data path is the host kernel module and is updated together with the host.
+- The interface and all client tunnels stay up. Peer changes are paused while the package is replaced, the result is verified, and the previous version is restored automatically on failure.
+
 ## Operations
 
 ```bash
@@ -316,6 +331,10 @@ sudo systemctl reload caddy
 Open ports 80 and 443 (TCP) for Caddy and the WireGuard UDP port. Do not publish 1881/tcp. Caddy sets `X-Forwarded-For` itself; if Caddy runs in another container, set `TRUSTED_PROXIES` to its network.
 
 ### Backup and restore
+
+**Settings → Backup** downloads a consistent database snapshot (API: `GET /api/v1/settings/backup`). It contains private keys; keep it safe. The API token can be rotated under **API access → Rotate token**.
+
+Volume-level backup:
 
 ```bash
 # Backup

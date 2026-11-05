@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import Layout from '../components/Layout'
+import Modal from '../components/Modal'
 import { Icon } from '../components/Icon'
 
 const ENDPOINTS: [string, string, string][] = [
@@ -14,6 +15,9 @@ const ENDPOINTS: [string, string, string][] = [
   ['GET', '/api/v1/settings', 'Read settings'],
   ['PUT', '/api/v1/settings', 'Update settings'],
   ['GET', '/api/v1/tailscale/status', 'Tailscale status'],
+  ['GET', '/api/v1/tailscale/prefs', 'Exit node, routes, shields-up'],
+  ['GET', '/api/v1/system/status', 'Versions, interface and client counts'],
+  ['GET', '/api/v1/settings/backup', 'Download a database backup'],
   ['GET', '/api/health', 'Health check (no auth)'],
 ]
 
@@ -21,6 +25,8 @@ export default function ApiAccess({ onLogout }: { onLogout: () => void }) {
   const [token, setToken] = useState('')
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState<string | null>(null)
+  const [confirmRotate, setConfirmRotate] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
 
   useEffect(() => {
     api.getSettings().then(s => setToken(s.api_token || '')).catch(() => {}).finally(() => setLoading(false))
@@ -33,6 +39,16 @@ export default function ApiAccess({ onLogout }: { onLogout: () => void }) {
       setTimeout(() => setCopied(null), 1800)
     } catch {
       /* clipboard unavailable (non-HTTPS) */
+    }
+  }
+
+  const rotate = async () => {
+    setConfirmRotate(false)
+    setErr(null)
+    try {
+      setToken(await api.rotateAPIToken())
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Failed to rotate token')
     }
   }
 
@@ -80,7 +96,11 @@ export default function ApiAccess({ onLogout }: { onLogout: () => void }) {
                   <div className="msg-body">No token yet. Sign out and sign in again to generate it.</div>
                 </div>
               )}
+              {err && <div className="msg msg-err compact" role="alert"><Icon name="x-circle" /><div className="msg-body">{err}</div></div>}
               <span className="hint">Random and independent of the password; regenerated when the password changes. Send it as a Bearer token.</span>
+              <div className="form-actions">
+                <button type="button" className="btn btn-sm" onClick={() => setConfirmRotate(true)}><Icon name="refresh" />Rotate token</button>
+              </div>
             </div>
           </section>
 
@@ -98,6 +118,22 @@ export default function ApiAccess({ onLogout }: { onLogout: () => void }) {
           </section>
         </div>
       </div>
+      {confirmRotate && (
+        <Modal
+          title="Rotate API token"
+          icon="key"
+          danger
+          onClose={() => setConfirmRotate(false)}
+          footer={
+            <>
+              <button type="button" className="btn" onClick={() => setConfirmRotate(false)}>Cancel</button>
+              <button type="button" className="btn btn-danger" onClick={rotate}>Rotate</button>
+            </>
+          }
+        >
+          <p>A new random token is generated and the current one stops working immediately. Scripts and integrations using it must be updated.</p>
+        </Modal>
+      )}
     </Layout>
   )
 }

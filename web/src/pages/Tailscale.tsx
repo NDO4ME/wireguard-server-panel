@@ -3,6 +3,7 @@ import { api, TailscaleStatus, TailscaleUpdateStatus } from '../api/client'
 import Layout from '../components/Layout'
 import Modal from '../components/Modal'
 import { Icon } from '../components/Icon'
+import TailscaleOptions from '../components/TailscaleOptions'
 
 type Notice = { kind: 'ok' | 'err' | 'info'; text: string; link?: string }
 
@@ -298,6 +299,8 @@ export default function TailscalePage({ onLogout }: { onLogout: () => void }) {
               </div>
             </section>
           )}
+
+          {ts.connected && <TailscaleOptions />}
 
           {ts.connected && ts.routes && ts.routes.length > 0 && (
             <section className="panel">

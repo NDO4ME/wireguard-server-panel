@@ -289,6 +289,43 @@ class ApiClient {
     });
   }
 
+  async getTailscalePrefs(): Promise<TailscalePrefs> {
+    return this.request<TailscalePrefs>('/tailscale/prefs');
+  }
+
+  async setTailscalePrefs(prefs: TailscalePrefs): Promise<TailscalePrefs> {
+    return this.request<TailscalePrefs>('/tailscale/prefs', {
+      method: 'PUT',
+      body: JSON.stringify(prefs),
+    });
+  }
+
+  async rotateAPIToken(): Promise<string> {
+    const r = await this.request<{ api_token: string }>('/settings/api-token/rotate', { method: 'POST' });
+    return r.api_token;
+  }
+
+  async downloadBackup(): Promise<void> {
+    const response = await fetch('/api/v1/settings/backup', {
+      headers: { 'Authorization': `Bearer ${this.accessToken}` },
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to create backup');
+    }
+    const cd = response.headers.get('Content-Disposition') || '';
+    const m = /filename="([^"]+)"/.exec(cd);
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = m ? m[1] : 'ndo4wg-backup.db';
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }
+
   // Tailscale methods
   async getTailscaleStatus(): Promise<TailscaleStatus> {
     return this.request<TailscaleStatus>('/tailscale/status');
@@ -344,6 +381,13 @@ class ApiClient {
       body: JSON.stringify({ enabled }),
     });
   }
+}
+
+interface TailscalePrefs {
+  advertise_exit_node: boolean;
+  advertise_routes: string[];
+  shields_up: boolean;
+  accept_routes: boolean;
 }
 
 interface SystemStatus {
@@ -469,4 +513,4 @@ interface ConnectionLog {
 }
 
 export const api = new ApiClient();
-export type { SystemStatus, WireGuardUpdateStatus, LoginPageConfig, UpdateSettingsRequest, Peer, ApiError, Settings, ConnectionLog, TailscaleStatus, TailscalePeer, TailscaleRoute, TailscaleConnectResponse, TailscaleResponse, TailscaleUpdateStatus, TailscaleUpdateResult };
+export type { TailscalePrefs, SystemStatus, WireGuardUpdateStatus, LoginPageConfig, UpdateSettingsRequest, Peer, ApiError, Settings, ConnectionLog, TailscaleStatus, TailscalePeer, TailscaleRoute, TailscaleConnectResponse, TailscaleResponse, TailscaleUpdateStatus, TailscaleUpdateResult };

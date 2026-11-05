@@ -9,6 +9,7 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
   const [settings, setSettings] = useState<SettingsType | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [backingUp, setBackingUp] = useState(false)
   const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
 
   const [endpointHost, setEndpointHost] = useState('')
@@ -51,6 +52,18 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
     !!settings &&
     (endpointHost !== settings.endpoint_host || dns !== settings.dns || allowedIPs !== settings.allowed_ips || loggingEnabled !== settings.logging_enabled || newPassword !== '' ||
       loginTitle !== settings.login_title || loginHeading !== settings.login_heading || loginLogo !== settings.login_logo || loginAccent !== settings.login_accent)
+
+  const downloadBackup = async () => {
+    setBackingUp(true)
+    setMessage(null)
+    try {
+      await api.downloadBackup()
+    } catch (err) {
+      setMessage({ kind: 'err', text: err instanceof Error ? err.message : 'Failed to create backup.' })
+    } finally {
+      setBackingUp(false)
+    }
+  }
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -175,6 +188,18 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
                   <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} autoComplete="new-password" />
                   <span className="hint">Changing the password also changes the API token.</span>
                 </label>
+              </div>
+            </section>
+
+            <section className="panel">
+              <header className="panel-h"><h2><Icon name="archive" />Backup</h2></header>
+              <div className="panel-b">
+                <p className="hint">Downloads a consistent snapshot of the database: clients, keys, settings. It contains private keys, so store it securely. To restore, replace the database file in the data volume while the container is stopped.</p>
+                <div className="form-actions">
+                  <button type="button" className="btn" disabled={backingUp} onClick={downloadBackup}>
+                    <Icon name="download" />{backingUp ? 'Preparing…' : 'Download backup'}
+                  </button>
+                </div>
               </div>
             </section>
           </div>

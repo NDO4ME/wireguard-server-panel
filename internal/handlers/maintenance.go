@@ -54,6 +54,7 @@ func (h *SettingsHandler) DownloadBackup(c *gin.Context) {
 	_ = os.Chmod(dest, 0o600)
 	name := "ndo4wg-backup-" + time.Now().UTC().Format("20060102-150405") + ".db"
 	log.Printf("database backup downloaded from %s", c.ClientIP())
+	_ = db.DB.AddAudit(c.ClientIP(), "GET", "/api/v1/settings/backup", http.StatusOK)
 	c.Header("Cache-Control", "no-store")
 	c.Header("Content-Disposition", `attachment; filename="`+name+`"`)
 	c.Header("Content-Type", "application/octet-stream")

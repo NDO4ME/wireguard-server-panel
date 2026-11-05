@@ -16,6 +16,7 @@ A self-hosted WireGuard VPN management panel with built-in Tailscale integration
 - **White-label login page** – only a password field and a button; optional logo, heading, tab title and accent colour from Settings
 - **REST API** – random API token for automation, rotatable from the UI
 - **System page** – interface health, client counts, versions and WireGuard tools updates
+- **Activity log** – the last 1000 state-changing requests and sign-in attempts (time, route, client IP, result; never request contents or secrets)
 - **Database backup** – one-click consistent snapshot download (Settings → Backup)
 - **Tailscale integration** – route WireGuard clients into your tailnet
 - **Tailscale node options** – exit node, subnet routes, accept routes and shields-up, applied live with `tailscale set`

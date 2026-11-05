@@ -117,3 +117,14 @@ func (h *SystemHandler) SetWireGuardAutoUpdate(c *gin.Context) {
 	h.updater.SetAuto(*req.Enabled)
 	c.JSON(http.StatusOK, gin.H{"success": true, "auto_update": *req.Enabled})
 }
+
+// GetAudit returns the most recent administrative actions.
+func (h *SystemHandler) GetAudit(c *gin.Context) {
+	entries, err := db.DB.ListAudit(100)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "Failed to read audit log"})
+		return
+	}
+	c.Header("Cache-Control", "no-store")
+	c.JSON(http.StatusOK, entries)
+}

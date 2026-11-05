@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../api/client'
-import type { SystemStatus, WireGuardUpdateStatus } from '../api/client'
+import type { AuditEntry, SystemStatus, WireGuardUpdateStatus } from '../api/client'
 import Layout from '../components/Layout'
 import Modal from '../components/Modal'
 import { Icon } from '../components/Icon'
@@ -15,15 +15,17 @@ function formatUptime(sec: number): string {
 export default function SystemPage({ onLogout }: { onLogout: () => void }) {
   const [sys, setSys] = useState<SystemStatus | null>(null)
   const [upd, setUpd] = useState<WireGuardUpdateStatus | null>(null)
+  const [audit, setAudit] = useState<AuditEntry[]>([])
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirm, setConfirm] = useState(false)
 
   const fetchAll = useCallback(async () => {
     try {
-      const [s, u] = await Promise.all([api.getSystemStatus(), api.getWireGuardUpdateStatus()])
+      const [s, u, a] = await Promise.all([api.getSystemStatus(), api.getWireGuardUpdateStatus(), api.getAuditLog()])
       setSys(s)
       setUpd(u)
+      setAudit(a)
     } catch (err) {
       console.error('Failed to load system status:', err)
       setError('Could not load system status.')
@@ -178,6 +180,30 @@ export default function SystemPage({ onLogout }: { onLogout: () => void }) {
               </section>
             )}
           </div>
+
+          <section className="panel">
+            <header className="panel-h"><h2><Icon name="list" />Activity log</h2><div className="panel-tools"><span className="badge">{audit.length}</span></div></header>
+            {audit.length === 0 ? (
+              <div className="empty-state">No administrative actions recorded yet.</div>
+            ) : (
+              <div className="tbl-wrap">
+                <table className="tbl tbl-compact">
+                  <thead><tr><th>Time</th><th>Action</th><th>From</th><th>Result</th></tr></thead>
+                  <tbody>
+                    {audit.map(e => (
+                      <tr key={e.id}>
+                        <td>{new Date(e.at).toLocaleString()}</td>
+                        <td><span className="badge">{e.method}</span> <span className="mono">{e.path.replace('/api/v1', '')}</span></td>
+                        <td className="mono">{e.ip}</td>
+                        <td><span className={e.status < 400 ? 'badge success' : 'badge failed'}>{e.status}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="panel-f"><span className="hint">The last 1000 state-changing requests and sign-in attempts are kept. Request contents and secrets are never stored.</span></div>
+          </section>
         </>
       )}
 

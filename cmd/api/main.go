@@ -120,6 +120,7 @@ func main() {
 	v1 := router.Group("/api/v1")
 	{
 		// Auth routes (public)
+		v1.Use(middleware.Audit())
 		v1.GET("/public/login-page", handlers.PublicLoginPage)
 
 		authGroup := v1.Group("/auth")
@@ -156,6 +157,7 @@ func main() {
 
 			// System overview and WireGuard tools updates
 			sysGroup := protected.Group("/system")
+			sysGroup.GET("/audit", systemHandler.GetAudit)
 			{
 				sysGroup.GET("/status", systemHandler.GetStatus)
 				sysGroup.GET("/wireguard/update/status", systemHandler.GetWireGuardUpdate)

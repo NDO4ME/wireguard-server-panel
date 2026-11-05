@@ -81,6 +81,14 @@ func (d *Database) migrate() error {
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 		)`,
+		`CREATE TABLE IF NOT EXISTS audit_log (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			ip TEXT NOT NULL DEFAULT '',
+			method TEXT NOT NULL,
+			path TEXT NOT NULL,
+			status INTEGER NOT NULL
+		)`,
 		`CREATE TABLE IF NOT EXISTS settings (
 			key TEXT PRIMARY KEY,
 			value TEXT NOT NULL,

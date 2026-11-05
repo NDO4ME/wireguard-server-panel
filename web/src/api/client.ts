@@ -270,6 +270,10 @@ class ApiClient {
     return this.request<SystemStatus>('/system/status');
   }
 
+  async getAuditLog(): Promise<AuditEntry[]> {
+    return this.request<AuditEntry[]>('/system/audit');
+  }
+
   async getWireGuardUpdateStatus(): Promise<WireGuardUpdateStatus> {
     return this.request<WireGuardUpdateStatus>('/system/wireguard/update/status');
   }
@@ -388,6 +392,15 @@ interface TailscalePrefs {
   advertise_routes: string[];
   shields_up: boolean;
   accept_routes: boolean;
+}
+
+interface AuditEntry {
+  id: number;
+  at: string;
+  ip: string;
+  method: string;
+  path: string;
+  status: number;
 }
 
 interface SystemStatus {
@@ -513,4 +526,4 @@ interface ConnectionLog {
 }
 
 export const api = new ApiClient();
-export type { TailscalePrefs, SystemStatus, WireGuardUpdateStatus, LoginPageConfig, UpdateSettingsRequest, Peer, ApiError, Settings, ConnectionLog, TailscaleStatus, TailscalePeer, TailscaleRoute, TailscaleConnectResponse, TailscaleResponse, TailscaleUpdateStatus, TailscaleUpdateResult };
+export type { AuditEntry, TailscalePrefs, SystemStatus, WireGuardUpdateStatus, LoginPageConfig, UpdateSettingsRequest, Peer, ApiError, Settings, ConnectionLog, TailscaleStatus, TailscalePeer, TailscaleRoute, TailscaleConnectResponse, TailscaleResponse, TailscaleUpdateStatus, TailscaleUpdateResult };

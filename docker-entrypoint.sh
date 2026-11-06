@@ -96,6 +96,16 @@ if [ -z "$DEFAULT_IFACE" ]; then
 fi
 echo "Using network interface: $DEFAULT_IFACE"
 
+# The VPN subnet is chosen once, on the first start. Later changes of WG_NETWORK
+# are ignored so existing clients keep working.
+if [ -f /etc/wireguard/wg0.conf ]; then
+    LOCKED_NETWORK=$(grep -oP 'POSTROUTING -s \K[0-9./]+' /etc/wireguard/wg0.conf 2>/dev/null | head -n1 || true)
+    if [ -n "$LOCKED_NETWORK" ] && [ "$LOCKED_NETWORK" != "$WG_NETWORK" ]; then
+        echo "NOTE: WG_NETWORK=$WG_NETWORK is ignored; this installation uses $LOCKED_NETWORK (the subnet can only be chosen on the first start)."
+        WG_NETWORK="$LOCKED_NETWORK"
+    fi
+fi
+
 # Validate the VPN subnet (e.g. 10.8.1.0/24) before anything is configured
 if ! [[ "$WG_NETWORK" =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})/([0-9]{1,2})$ ]] \
    || [ "${BASH_REMATCH[1]}" -gt 255 ] || [ "${BASH_REMATCH[2]}" -gt 255 ] \

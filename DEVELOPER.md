@@ -92,7 +92,7 @@ All settings are environment variables.
 |-------------------------|----------------|-------------|
 | `ADMIN_PASSWORD`        | random         | Initial admin password (a weak default is refused) |
 | `WG_HOST`               | auto-detected  | Public IP or hostname used in client configs |
-| `WG_NETWORK`            | `10.8.0.0/24`  | VPN subnet, a private `/24` such as `10.8.1.0/24` (up to 253 clients). Choose it before the first start; see [Custom VPN subnet](#custom-vpn-subnet) |
+| `WG_NETWORK`            | `10.8.0.0/24`  | VPN subnet, a private `/24` such as `10.8.1.0/24` (up to 253 clients). Chosen on the first start only; see [Custom VPN subnet](#custom-vpn-subnet) |
 | `WG_DNS`                | `1.1.1.1`      | DNS pushed to clients |
 | `WG_PORT`               | `51820`        | WireGuard listen port inside the container |
 | `WG_PUBLIC_PORT`        | `1881`         | UDP port clients connect to (host side of `-p`) |
@@ -105,7 +105,7 @@ All settings are environment variables.
 
 ### Custom VPN subnet
 
-The default subnet is `10.8.0.0/24`. To use another one, set `WG_NETWORK` to a private `/24` **on the first start**:
+The default subnet is `10.8.0.0/24`. To use another one, set `WG_NETWORK` to a private `/24` when you install for the first time:
 
 ```bash
 # Docker Compose
@@ -118,7 +118,7 @@ WG_NETWORK=10.8.1.0/24 docker compose up -d
 - The server takes `.1`, clients get `.2` to `.254`.
 - Use a range that does not clash with your LAN, other VPNs or Tailscale (`100.64.0.0/10` is rejected).
 - Invalid values stop the container with a clear message; a host-bits-set value such as `10.8.1.5/24` is rejected too.
-- Changing it later affects only new clients: existing clients keep their old addresses and stop working. The panel logs a warning for them. Delete and recreate those clients, or set the old value back.
+- **First start only.** The subnet is stored with the installation. Changing `WG_NETWORK` later has no effect (the container and panel log a note and keep the original subnet), so existing clients never lose their addresses. To use a different subnet, start with a new, empty data volume.
 
 ### Ports
 

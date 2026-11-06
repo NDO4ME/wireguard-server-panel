@@ -66,6 +66,7 @@ func main() {
 		log.Printf("Warning: %s", w)
 	}
 
+	lockSubnet(cfg)
 	warnPeersOutsideSubnet(cfg.WireGuard.Subnet)
 
 	if err := ensureAPIToken(cfg); err != nil {
@@ -510,5 +511,23 @@ func warnPeersOutsideSubnet(subnet string) {
 	}
 	if n > 0 {
 		log.Printf("Warning: %d client(s) have addresses outside WG_NETWORK %s. WG_NETWORK was changed after they were created; delete and recreate them (or set WG_NETWORK back).", n, subnet)
+	}
+}
+
+// lockSubnet makes the VPN subnet a first-install choice: it is stored on the
+// first start and a different WG_NETWORK later is ignored, because existing
+// clients already have addresses in the original subnet.
+func lockSubnet(cfg *config.Config) {
+	const key = "wg_network"
+	stored, _ := db.DB.GetSetting(key)
+	if stored == "" {
+		if err := db.DB.SetSetting(key, cfg.WireGuard.Subnet); err != nil {
+			log.Printf("Warning: could not store the VPN subnet: %v", err)
+		}
+		return
+	}
+	if stored != cfg.WireGuard.Subnet {
+		log.Printf("Note: WG_NETWORK=%s is ignored; this installation uses %s (the subnet can only be chosen on the first start).", cfg.WireGuard.Subnet, stored)
+		cfg.WireGuard.Subnet = stored
 	}
 }

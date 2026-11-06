@@ -96,6 +96,14 @@ if [ -z "$DEFAULT_IFACE" ]; then
 fi
 echo "Using network interface: $DEFAULT_IFACE"
 
+# Validate the VPN subnet (e.g. 10.8.1.0/24) before anything is configured
+if ! [[ "$WG_NETWORK" =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})/([0-9]{1,2})$ ]] \
+   || [ "${BASH_REMATCH[1]}" -gt 255 ] || [ "${BASH_REMATCH[2]}" -gt 255 ] \
+   || [ "${BASH_REMATCH[3]}" -gt 255 ] || [ "${BASH_REMATCH[4]}" -gt 255 ]; then
+    echo "ERROR: WG_NETWORK='$WG_NETWORK' is not a valid IPv4 network. Example: 10.8.1.0/24"
+    exit 1
+fi
+
 # Parse network for server address
 NETWORK_PREFIX=$(echo "$WG_NETWORK" | cut -d'/' -f1)
 NETWORK_MASK=$(echo "$WG_NETWORK" | cut -d'/' -f2)

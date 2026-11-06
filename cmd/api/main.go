@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/netip"
 	"os"
 	"os/signal"
 	"runtime"
@@ -57,6 +58,16 @@ func main() {
 	if err := ensureAdminUser(cfg); err != nil {
 		log.Fatalf("Failed to create admin user: %v", err)
 	}
+	warns, err := config.CheckSubnet(cfg.WireGuard.Subnet)
+	if err != nil {
+		log.Fatalf("Invalid configuration: %v", err)
+	}
+	for _, w := range warns {
+		log.Printf("Warning: %s", w)
+	}
+
+	warnPeersOutsideSubnet(cfg.WireGuard.Subnet)
+
 	if err := ensureAPIToken(cfg); err != nil {
 		log.Fatalf("Failed to prepare API token: %v", err)
 	}
@@ -478,4 +489,26 @@ func restoreTailscaleRouting(cfg *config.Config, m *tailscale.Manager, maxWait t
 		time.Sleep(3 * time.Second)
 	}
 	log.Println("Tailscale not connected; routing rules not restored")
+}
+
+// warnPeersOutsideSubnet logs a clear hint when WG_NETWORK was changed after
+// clients were created: their addresses belong to the old subnet.
+func warnPeersOutsideSubnet(subnet string) {
+	prefix, err := netip.ParsePrefix(subnet)
+	if err != nil {
+		return
+	}
+	peers, err := db.DB.GetAllPeers()
+	if err != nil {
+		return
+	}
+	n := 0
+	for _, p := range peers {
+		if a, err := netip.ParseAddr(p.AssignedIP); err == nil && !prefix.Contains(a) {
+			n++
+		}
+	}
+	if n > 0 {
+		log.Printf("Warning: %d client(s) have addresses outside WG_NETWORK %s. WG_NETWORK was changed after they were created; delete and recreate them (or set WG_NETWORK back).", n, subnet)
+	}
 }

@@ -54,6 +54,7 @@ services:
       - TAILSCALE_AUTO_UPDATE=${TAILSCALE_AUTO_UPDATE:-true}
       - WIREGUARD_AUTO_UPDATE=${WIREGUARD_AUTO_UPDATE:-true}
       - IP_OPTIONS_FILTER=${IP_OPTIONS_FILTER:-true}
+      - PANEL_BLOCK_VPN=${PANEL_BLOCK_VPN:-false}
       # Memory optimization (supports 500+ peers)
       - GOGC=100
       - GOMEMLIMIT=512MiB

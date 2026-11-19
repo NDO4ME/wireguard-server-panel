@@ -33,9 +33,10 @@ if [ "${IP_OPTIONS_FILTER:-true}" != "false" ]; then
     fi
 fi
 
-# VPN clients must not reach the panel directly (it is meant to sit behind a
-# reverse proxy). Only the panel port on wg0 is blocked; tunnelled traffic is untouched.
-if [ "${PANEL_BLOCK_VPN:-true}" != "false" ]; then
+# Opt-in: stop VPN clients from reaching the panel directly on wg0 (it is meant
+# to sit behind a reverse proxy). Off by default so existing setups that open the
+# panel over the VPN keep working. Tunnelled traffic is untouched either way.
+if [ "${PANEL_BLOCK_VPN:-false}" = "true" ]; then
     VPN_RULE=(INPUT -i wg0 -p tcp --dport "${PANEL_PORT:-1881}" -j DROP)
     iptables -C "${VPN_RULE[@]}" 2>/dev/null || iptables -I "${VPN_RULE[@]}" 2>/dev/null || true
 fi

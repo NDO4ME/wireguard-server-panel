@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"net/netip"
+	"regexp"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -231,19 +232,23 @@ func (h *SettingsHandler) GetPeerLogs(c *gin.Context) {
 	c.JSON(http.StatusOK, logs)
 }
 
-// validDNSList accepts an empty value (no DNS line) or comma-separated IPs. Anything
+// validDNSList accepts an empty value (no DNS line) or comma-separated IPs/hostnames. Anything
 // else, notably line breaks, could inject directives into generated client configs.
 func validDNSList(v string) bool {
 	if strings.TrimSpace(v) == "" {
 		return true
 	}
 	for _, p := range strings.Split(v, ",") {
-		if _, err := netip.ParseAddr(strings.TrimSpace(p)); err != nil {
+		p = strings.TrimSpace(p)
+		if _, err := netip.ParseAddr(p); err != nil && !dnsHostRe.MatchString(p) {
 			return false
 		}
 	}
 	return true
 }
+
+// dnsHostRe covers the search-domain/hostname form WireGuard also accepts.
+var dnsHostRe = regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$`)
 
 func validCIDRList(v string) bool {
 	if strings.TrimSpace(v) == "" {

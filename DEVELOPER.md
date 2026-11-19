@@ -99,6 +99,7 @@ All settings are environment variables.
 | `PANEL_PORT`            | `1881`         | Panel HTTP port |
 | `TAILSCALE_AUTO_UPDATE` | `true`         | Default for automatic Tailscale updates (the panel toggle overrides it) |
 | `IP_OPTIONS_FILTER`     | `true`         | Drop inbound IPv4 packets with IP options inside the container (CVE-2026-98432 hardening) |
+| `PANEL_BLOCK_VPN`       | `false`        | Set `true` to block VPN clients from reaching the panel port on `wg0` (use when the panel is only meant to be reached through your reverse proxy) |
 | `WIREGUARD_AUTO_UPDATE` | `true`         | Default for automatic WireGuard tools updates (System page toggle overrides it) |
 | `TRUSTED_PROXIES`       | loopback + private ranges | Comma separated CIDRs allowed to set `X-Forwarded-For` |
 | `TZ`                    | `UTC`          | Timezone |

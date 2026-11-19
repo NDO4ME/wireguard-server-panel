@@ -1,6 +1,6 @@
 import logoFull from '../theme/logo.webp'
 import logoMark from '../theme/logo-mark.webp'
-import { useEffect, useState, ReactNode } from 'react'
+import { useEffect, useRef, useState, ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { Icon } from './Icon'
 import { api } from '../api/client'
@@ -35,13 +35,15 @@ export default function Layout({ onLogout, actions, children }: LayoutProps) {
 
   const [mini, setMini] = useState(() => {
     try {
-      return localStorage.getItem(SB_KEY) === 'mini'
+      return localStorage.getItem(SB_KEY) !== 'full' // icon rail by default
     } catch {
-      return false
+      return true
     }
   })
   const [drawer, setDrawer] = useState(false)
   const [menu, setMenu] = useState(false)
+  const [peek, setPeek] = useState(false)
+  const peekTimer = useRef<number | undefined>(undefined)
   const [online, setOnline] = useState(true)
 
   useEffect(() => {
@@ -83,7 +85,21 @@ export default function Layout({ onLogout, actions, children }: LayoutProps) {
     }
   }, [menu])
 
-  const rootClass = ['app', mini ? 'sb-mini' : '', drawer ? 'sb-open' : ''].filter(Boolean).join(' ')
+  useEffect(() => () => window.clearTimeout(peekTimer.current), [])
+  // Resting the pointer on the rail for a moment peeks it open as an overlay.
+  const peekIn = () => {
+    window.clearTimeout(peekTimer.current)
+    peekTimer.current = window.setTimeout(() => setPeek(true), 180)
+  }
+  const peekOut = () => {
+    window.clearTimeout(peekTimer.current)
+    setPeek(false)
+  }
+
+  const rootClass = ['app', mini ? 'sb-mini' : '', mini && peek ? 'sb-peek' : '', drawer ? 'sb-open' : ''].filter(Boolean).join(' ')
+
+  const today = new Date()
+  const eyebrow = `${today.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}, ${today.toLocaleDateString('en-GB', { weekday: 'long' })}`
 
   const signOut = async () => {
     await api.logout()
@@ -93,7 +109,7 @@ export default function Layout({ onLogout, actions, children }: LayoutProps) {
   return (
     <div className={rootClass}>
       <a className="skip" href="#main">Skip to content</a>
-      <aside className="sb" aria-label="Sidebar">
+      <aside className="sb" aria-label="Sidebar" onMouseEnter={peekIn} onMouseLeave={peekOut}>
         <NavLink to="/" className="sb-brand" aria-label="NDO4ME" data-label="NDO4ME">
           <img className="sb-logo-full" src={logoFull} width={124} height={31} alt="" draggable={false} />
           <img className="sb-logo-mark" src={logoMark} width={34} height={20} alt="" draggable={false} />
@@ -171,6 +187,7 @@ export default function Layout({ onLogout, actions, children }: LayoutProps) {
         <main className="page" id="main" tabIndex={-1}>
           <div className="ph">
             <div className="ph-text">
+              <p className="ph-eyebrow">{`// ${eyebrow}`}</p>
               <h1>{current.title}</h1>
               <p className="ph-desc">{current.desc}</p>
             </div>

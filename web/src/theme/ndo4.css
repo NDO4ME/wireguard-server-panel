@@ -1,0 +1,102 @@
+/* NDO4 admin finishing layer. Deliberately restrained: hairlines, even
+   surfaces, no glows, no coloured halos. Loaded after app.css and extra.css. */
+
+/* ── Focus: no coloured halo on click, one neutral ring for the keyboard ── */
+a:focus, button:focus, summary:focus { outline: none; }
+a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
+  outline: 1.5px solid rgba(255, 255, 255, .55); outline-offset: 2px; border-radius: 6px; }
+[tabindex="-1"]:focus { outline: none; }
+.sb-item:focus-visible, .sb-site:focus-visible { outline-offset: -2px; }
+
+/* ── Type ── */
+h1, h2 { text-wrap: balance; }
+.ph-eyebrow { margin: 0 0 6px; font: 500 11px/1.4 var(--mono); letter-spacing: .02em; color: var(--text-3); }
+.eyebrow, .fieldset-t, .sb-group { letter-spacing: .08em; }
+
+/* ── Surfaces: flat cards, a barely-there top edge, a quiet shadow ── */
+.panel, .vital, .auth-card, .run-card, .bk-tile, .sum-url {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, .022), rgba(255, 255, 255, 0) 38%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px -12px rgba(0, 0, 0, .5);
+  transition: border-color .15s ease;
+}
+.panel-h { border-bottom-color: var(--line); }
+.panel-f { background: rgba(255, 255, 255, .015); }
+@media (hover: hover) {
+  .panel:hover, .vital:hover { border-color: #3a3b3f; }
+  .panel[data-lit]:hover, .vital[data-lit]:hover {
+    background-image:
+      radial-gradient(260px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, .05), transparent 70%),
+      linear-gradient(180deg, rgba(255, 255, 255, .022), rgba(255, 255, 255, 0) 38%);
+  }
+}
+
+/* ── Top bar sits on the page ground, the sidebar on the card colour ── */
+.tb { background: var(--bg); }
+
+/* ── Buttons: pills, one primary per view ── */
+.btn { border-radius: 999px; padding: 0 16px; background: var(--surface); border-color: var(--line-strong); color: #afb0b1;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04), 0 1px 1px rgba(0, 0, 0, .3); }
+.btn:hover { background: #2f3033; color: var(--text); }
+.btn-sm { padding: 0 12px; }
+.btn-icon { padding: 0; }
+.btn-primary, .btn.primary { background-image: linear-gradient(180deg, rgba(255, 255, 255, .12), rgba(255, 255, 255, 0) 60%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), inset 0 0 0 1px rgba(0, 0, 0, .12), 0 1px 2px rgba(0, 0, 0, .35); font-weight: 600; }
+.btn-primary:hover, .btn.primary:hover { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .2), inset 0 0 0 1px rgba(0, 0, 0, .12), 0 2px 6px rgba(0, 0, 0, .35); }
+.btn:active { transform: translateY(1px) scale(.985); box-shadow: inset 0 1px 2px rgba(0, 0, 0, .35); }
+.btn-ghost, .btn-ghost:hover { box-shadow: none; }
+.btn:disabled, .btn[disabled] { opacity: .55; cursor: not-allowed; transform: none; }
+
+/* ── Fields ── */
+input[type=text], input[type=password], input[type=number], input[type=email], input[type=url], input[type=search],
+input:not([type]), select, textarea { border-radius: 8px; }
+input:focus, select:focus, textarea:focus { outline: none; box-shadow: none; border-color: #6b6c6f; }
+
+/* ── Chips ── */
+.badge { border-radius: 999px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); }
+.badge.success, .badge.ok { box-shadow: inset 0 0 0 1px rgba(67, 181, 98, .22); }
+.badge.failed, .badge.error { box-shadow: inset 0 0 0 1px rgba(226, 85, 77, .22); }
+.badge.warning, .badge.warn { box-shadow: inset 0 0 0 1px rgba(224, 163, 46, .22); }
+.badge.info, .badge.running { box-shadow: inset 0 0 0 1px rgba(103, 167, 163, .25); }
+.msg { border-radius: 12px; }
+
+/* ── Tables ── */
+.tbl thead th { letter-spacing: .06em; }
+@media (hover: hover) {
+  .tbl tbody tr { transition: background-color .12s ease; }
+  .tbl tbody tr:hover { background-color: rgba(255, 255, 255, .02); }
+}
+
+/* ── Page arrival: a short fade, nothing moves ── */
+@media (prefers-reduced-motion: no-preference) {
+  .page { animation: ndo4-fade .22s ease both; }
+  @keyframes ndo4-fade { from { opacity: 0; } }
+}
+
+/* ── Sidebar: active item in accent tones ── */
+.sb-item[aria-current="page"] { background: var(--primary-soft); color: #fff; }
+.sb-item[aria-current="page"] .ic { color: #67a7a3; }
+.sb-item[aria-current="page"]::before { background: #67a7a3; }
+.sb-item { border-radius: 10px; }
+
+/* ── Sidebar as an icon rail: rests at 4rem, peeks to 16rem as an overlay on
+      hover (short delay, set from Layout) or keyboard focus. The content
+      offset stays at 4rem, so nothing on the page shifts. Desktop only. ── */
+@media (min-width: 901px) {
+  .sb { transition: width .2s ease, box-shadow .2s ease; }
+  .sb-mini .sb:focus-within, .sb-mini.sb-peek .sb { width: var(--sb-w); box-shadow: 12px 0 40px -8px rgba(0, 0, 0, .65); }
+  .sb-mini .sb:focus-within .sb-logo-full, .sb-mini.sb-peek .sb .sb-logo-full { display: block; }
+  .sb-mini .sb:focus-within .sb-logo-mark, .sb-mini.sb-peek .sb .sb-logo-mark { display: none; }
+  .sb-mini .sb:focus-within .sb-item span, .sb-mini.sb-peek .sb .sb-item span,
+  .sb-mini .sb:focus-within .sb-ver, .sb-mini.sb-peek .sb .sb-ver { display: revert; }
+  .sb-mini .sb:focus-within .sb-nav, .sb-mini.sb-peek .sb .sb-nav { overflow-y: auto; padding: 8px 8px 12px; }
+  .sb-mini .sb:focus-within .sb-item, .sb-mini.sb-peek .sb .sb-item { justify-content: flex-start; padding: 0 12px; }
+  .sb-mini .sb:focus-within .sb-group, .sb-mini.sb-peek .sb .sb-group { height: auto; margin: 0; padding: 18px 12px 6px; background: none; font-size: 11px; }
+  .sb-mini .sb:focus-within .sb-foot, .sb-mini.sb-peek .sb .sb-foot { justify-content: space-between; padding: 0 12px 0 16px; }
+  .sb-mini .sb:focus-within .sb-brand, .sb-mini.sb-peek .sb .sb-brand { padding: 0 16px; justify-content: center; }
+  .sb-mini .sb:focus-within .sb-item::after, .sb-mini.sb-peek .sb .sb-item::after,
+  .sb-mini .sb:focus-within .sb-brand::after, .sb-mini.sb-peek .sb .sb-brand::after { content: none; }
+}
+
+/* ── Sign-in: a plain, solid card ── */
+.auth { background: var(--bg); }
+.auth-card { background: rgba(36, 37, 40, .94); border-color: #36373b; box-shadow: 0 24px 60px -30px rgba(0, 0, 0, .9); }

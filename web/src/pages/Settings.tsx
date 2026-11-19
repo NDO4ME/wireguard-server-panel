@@ -235,8 +235,8 @@ export default function Settings({ onLogout }: { onLogout: () => void }) {
                 <label className="field">
                   <span className="lbl">Accent colour</span>
                   <div className="accent-pick">
-                    <input type="color" value={/^#[0-9a-f]{6}$/i.test(loginAccent) ? loginAccent : '#2a8fdc'} onChange={e => setLoginAccent(e.target.value)} aria-label="Accent colour" />
-                    <input type="text" value={loginAccent} onChange={e => setLoginAccent(e.target.value.trim())} placeholder="#2a8fdc" maxLength={7} spellCheck={false} />
+                    <input type="color" value={/^#[0-9a-f]{6}$/i.test(loginAccent) ? loginAccent : '#3f7572'} onChange={e => setLoginAccent(e.target.value)} aria-label="Accent colour" />
+                    <input type="text" value={loginAccent} onChange={e => setLoginAccent(e.target.value.trim())} placeholder="#3f7572" maxLength={7} spellCheck={false} />
                     {loginAccent && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setLoginAccent('')}>Reset</button>}
                   </div>
                 </label>

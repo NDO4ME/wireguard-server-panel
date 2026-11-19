@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"net/http"
+	"net/netip"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/ndo4me/wireguard-server-panel/internal/auth"
@@ -103,6 +105,15 @@ func (h *SettingsHandler) UpdateSettings(c *gin.Context) {
 		h.config.WireGuard.EndpointHost = host
 	}
 
+	if req.DNS != nil && !validDNSList(*req.DNS) {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "DNS must be a comma-separated list of IP addresses"})
+		return
+	}
+	if req.AllowedIPs != nil && !validCIDRList(*req.AllowedIPs) {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "AllowedIPs must be a comma-separated list of IPs or CIDR ranges"})
+		return
+	}
+
 	// Update DNS
 	if req.DNS != nil {
 		if err := db.DB.SetSetting("dns", *req.DNS); err != nil {
@@ -143,7 +154,7 @@ func (h *SettingsHandler) UpdateSettings(c *gin.Context) {
 
 	// Update admin password
 	if req.AdminPassword != nil && *req.AdminPassword != "" {
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(*req.AdminPassword), bcrypt.DefaultCost)
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(*req.AdminPassword), 12)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 				Error: "Failed to hash password",
@@ -218,4 +229,33 @@ func (h *SettingsHandler) GetPeerLogs(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, logs)
+}
+
+// validDNSList accepts an empty value (no DNS line) or comma-separated IPs. Anything
+// else, notably line breaks, could inject directives into generated client configs.
+func validDNSList(v string) bool {
+	if strings.TrimSpace(v) == "" {
+		return true
+	}
+	for _, p := range strings.Split(v, ",") {
+		if _, err := netip.ParseAddr(strings.TrimSpace(p)); err != nil {
+			return false
+		}
+	}
+	return true
+}
+
+func validCIDRList(v string) bool {
+	if strings.TrimSpace(v) == "" {
+		return false
+	}
+	for _, p := range strings.Split(v, ",") {
+		p = strings.TrimSpace(p)
+		if _, err := netip.ParsePrefix(p); err != nil {
+			if _, err2 := netip.ParseAddr(p); err2 != nil {
+				return false
+			}
+		}
+	}
+	return true
 }

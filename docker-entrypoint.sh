@@ -33,10 +33,17 @@ if [ "${IP_OPTIONS_FILTER:-true}" != "false" ]; then
     fi
 fi
 
+# VPN clients must not reach the panel directly (it is meant to sit behind a
+# reverse proxy). Only the panel port on wg0 is blocked; tunnelled traffic is untouched.
+if [ "${PANEL_BLOCK_VPN:-true}" != "false" ]; then
+    VPN_RULE=(INPUT -i wg0 -p tcp --dport "${PANEL_PORT:-1881}" -j DROP)
+    iptables -C "${VPN_RULE[@]}" 2>/dev/null || iptables -I "${VPN_RULE[@]}" 2>/dev/null || true
+fi
+
 # Ensure data directories exist with proper permissions
 mkdir -p /data/wireguard /data/db /data/tailscale
 chmod 700 /data/wireguard
-chmod 755 /data/db
+chmod 700 /data/db
 chmod 700 /data/tailscale
 
 # Create symlink for WireGuard config location
@@ -68,6 +75,7 @@ if [ -z "$ADMIN_PASSWORD" ]; then
     PW_FILE="/data/db/.admin_password"
     if [ ! -s "$PW_FILE" ]; then
         ( umask 077; head -c 48 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 20 > "$PW_FILE" )
+        GENERATED_ADMIN_PASSWORD=1
         echo "ADMIN_PASSWORD not set - generated a random admin password: $(cat "$PW_FILE")"
         echo "It is also stored in $PW_FILE; delete that file after you changed the password."
     fi
@@ -214,7 +222,7 @@ echo "=========================================="
 echo ""
 echo "  Panel URL: http://${WG_HOST}:${PANEL_PORT}"
 echo "  Username: ndo4me (fixed)"
-echo "  Password: ${ADMIN_PASSWORD}"
+if [ -n "${GENERATED_ADMIN_PASSWORD:-}" ]; then echo "  Password: ${ADMIN_PASSWORD}"; else echo "  Password: (as configured)"; fi
 echo ""
 echo "  WireGuard Endpoint: ${WG_HOST}:${WG_PUBLIC_PORT}/udp"
 echo "  Server Public Key: ${SERVER_PUBLIC_KEY}"

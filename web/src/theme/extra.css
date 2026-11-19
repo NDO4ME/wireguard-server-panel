@@ -44,7 +44,6 @@ dialog.modal.modal-wide { width: min(640px, calc(100vw - 32px)); }
 .panel .msg.compact { margin-top: 12px; }
 @media (max-width: 720px) {
   .cols, .cols-2, .cols-3, .cols-main { grid-template-columns: 1fr; }
-  .vitals, .vitals-3 { grid-template-columns: 1fr; }
   .ph { flex-wrap: wrap; }
   .ph-actions { margin-left: 0; }
 }
@@ -56,7 +55,6 @@ dialog.modal.modal-wide { width: min(640px, calc(100vw - 32px)); }
 .auth-logo { display: flex; justify-content: center; margin-bottom: 20px; }
 .auth-logo img { max-width: 220px; max-height: 56px; object-fit: contain; }
 .auth-card h1 { margin-bottom: 20px; }
-.auth-card input:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 24%, transparent); }
 .auth-card .field:last-of-type { margin-bottom: 14px; }
 .auth-card .msg { margin-bottom: 14px; }
 
